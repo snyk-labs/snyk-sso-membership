@@ -25,6 +25,7 @@ make build
 ```bash
 snyk-sso-membership sync <groupID> --domain=source.com --ssoDomain=destination.com
 ```
+This will synchronize Group and Org memberships of SSO Users on the `source.com` domain to their corresponding self on `destination.com` domain.
 
 ### Deleting SSO Users
 
