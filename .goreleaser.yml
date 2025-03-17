@@ -1,0 +1,83 @@
+version: 2
+before:
+  hooks:
+  - go mod download
+
+builds:
+- main: ./cmd/snyk/main.go
+  env:
+  - CGO_ENABLED=0
+  goos:
+  - windows
+  - linux
+  - darwin
+  goarch:
+  - amd64
+  - arm64
+  ldflags:
+  - "-s"
+  - "-w"
+  - "-X github.com/snyk-labs/snyk-sso-membership/internal/commands.cliVersion={{.Version}}"
+
+archives:
+- format: tar.gz
+  name_template: >-
+    {{ .ProjectName }}_
+    {{- title .Os }}_
+    {{- if eq .Arch "amd64" }}x86_64
+    {{- else if eq .Arch "386" }}i386
+    {{- else }}{{ .Arch }}{{ end }}
+  format_overrides:
+    - goos: windows
+      format: zip
+  files:
+    #    - LICENSE
+    - README.md
+
+checksum:
+  name_template: 'checksums.txt'
+
+changelog:
+  use: github
+  groups:
+  - title: New Features
+    regexp: '^feat(ure)?:'
+    order: 0
+  - title: Bug Fixes
+    regexp: '^(bug|fix):'
+    order: 1
+  - title: Other Changes
+    order: 999
+  sort: asc
+  filters:
+    exclude:
+    - '^docs:'
+    - '^test:'
+    - '^misc:'
+    - '^typo:'
+    - '(?i) typo( |\.|\r?\n)'
+
+# Publishes the deb and rpm files to the GitHub releases page.
+nfpms:
+  - bindir: /usr/bin
+    description: "Snyk security scan SBOMs with security information enrichment"
+    formats:
+      - deb
+      - rpm
+    homepage: https://github.com/snyk-labs/snyk-sso-membership
+    maintainer: CSG-SA <csg-sa-global@snyk.io>
+
+source:
+  enabled: true
+
+sboms:
+  - id: cyclonedx
+    artifacts: source
+    args: ["$artifact", "--file", "$document", "--output", "cyclonedx-json"]
+    documents:
+      - "{{ .Binary }}_{{ .Version }}.cyclonedx.sbom"
+  - id: spdx
+    artifacts: source
+    args: ["$artifact", "--file", "$document", "--output", "spdx-json"]
+    documents:
+      - "{{ .Binary }}-{{ .Version }}.spdx.sbom"
