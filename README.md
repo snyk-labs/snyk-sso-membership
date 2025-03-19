@@ -1,4 +1,6 @@
-#snyk-sso-membership
+![Snyk logo](https://snyk.io/style/asset/logo/snyk-print.svg)
+
+# snyk-sso-membership
 
 A Go CLI tool executable for synchronizing Snyk Single Sign On (SSO) memberships of a provisioned SSO User from a source SSO domain to a destination SSO domain.
 
@@ -17,7 +19,11 @@ To build `snyk-sso-membership`:
 make build
 ```
 
-## Commands
+## Prerequisites
+
+- Snyk Service Account API Key token with Group Admin role 
+
+## Usage
 ### Executing sync Users Membership
 
 - Specify Snyk `groupID` as an argument with `domain` and `ssoDomain` flags
@@ -43,6 +49,8 @@ snyk-sso-membership delete-users <groupID> --email=User1@source.com,User2@source
 
 ## Note
 
-Default email notifications of e.g. Snyk detected vulnerabilities based on the subscribed Snyk Group and Org settings will be applied on Snyk SSO Users with synchronization of those memberships completed on the destination domain.
+- Full synchronization is performed. i.e. in (A -> B) sync, B user list of Org memberships mirror exact of A. Any B's memberships to Orgs without A are deleted.
 
-Deleting a SSO User will trigger an immediate "Your Snyk account was deleted" email to the Snyk SSO user on the specified domain or email addresses.
+- Default email notifications of e.g. Snyk detected vulnerabilities based on the subscribed Snyk Group and Org settings will be applied on Snyk SSO Users with synchronization of those memberships completed on the destination domain.
+
+- Deleting a SSO User will trigger an immediate "Your Snyk account was deleted" email to the Snyk SSO user on the specified domain or email addresses.
