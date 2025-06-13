@@ -79,20 +79,12 @@ func (sso *Client) getSSOUsers(groupID, ssoConnectionID string) (*Users, error) 
 // Checks whether domain matches User email domain
 func isMatchUserDomain(user *User, domain string) bool {
 	isMatched := false
-	userEmail := user.Attributes.Email
-	if domain != "" && strings.HasSuffix(*userEmail, "@"+domain) {
-		isMatched = true
+	var userEmail *string
+	if user.Attributes != nil && user.Attributes.Email != nil {
+		userEmail = user.Attributes.Email
 	}
 
-	return isMatched
-}
-
-// checks whether an email matches directly to a Snyk user SSO-mapped email
-func isMatchUserEmail(user *User, email string) bool {
-	isMatched := false
-	userEmail := user.Attributes.Email
-	trimEmail := strings.TrimSpace(email)
-	if email != "" && *userEmail == trimEmail {
+	if domain != "" && userEmail != nil && strings.HasSuffix(*userEmail, "@"+domain) {
 		isMatched = true
 	}
 
@@ -112,40 +104,8 @@ func (sso *Client) deleteSSOUser(groupID, ssoConnectionID, userID string) error 
 	return nil
 }
 
-func (sso *Client) deleteMatchingUsers(groupID, ssoConnectionID string, users *Users, domain, email string, logger *zerolog.Logger) int32 {
-	var count int32
-	if domain != "" {
-		for _, u := range *users.Data {
-			if isMatchUserDomain(&u, domain) {
-				err := sso.deleteSSOUser(groupID, ssoConnectionID, *(u.ID))
-				if err != nil {
-					logger.Error().Err(err).Msg(fmt.Sprintf("Unable to delete user: %s", *u.Attributes.Email))
-				} else {
-					logger.Info().Msg(fmt.Sprintf("Deleted user: %s", *u.Attributes.Email))
-				}
-				count++
-			}
-		}
-	} else if email != "" {
-		userEmails := strings.Split(email, ",")
-		for _, e := range userEmails {
-			for _, u := range *users.Data {
-				if isMatchUserEmail(&u, e) {
-					err := sso.deleteSSOUser(groupID, ssoConnectionID, *(u.ID))
-					if err != nil {
-						logger.Error().Err(err).Msg(fmt.Sprintf("Unable to delete user: %s", *u.Attributes.Email))
-					} else {
-						logger.Info().Msg(fmt.Sprintf("Deleted user: %s", *u.Attributes.Email))
-					}
-					count++
-					break
-				}
-			}
-		}
-	}
-	return count
-}
-
+// GetUsers retrieves SSO users for a given groupID.
+// It fetches the SSO connection first and then retrieves users associated with that connection.
 func (sso *Client) GetUsers(groupID string, logger *zerolog.Logger) (*Users, error) {
 	ssoConnection, err := sso.getSSOConnection(groupID)
 	if err != nil || ssoConnection == nil || len(ssoConnection.Data) == 0 {
@@ -162,7 +122,8 @@ func (sso *Client) GetUsers(groupID string, logger *zerolog.Logger) (*Users, err
 	return ssoUsers, nil
 }
 
-func (sso *Client) DeleteUsers(groupID, domain, email string, logger *zerolog.Logger) error {
+// Delete SSO users based on the provided groupID and Users.
+func (sso *Client) DeleteUsers(groupID string, users Users, logger *zerolog.Logger) error {
 	ssoConnection, err := sso.getSSOConnection(groupID)
 	if err != nil || ssoConnection == nil || len(ssoConnection.Data) == 0 {
 		logger.Error().Err(err).Msg(fmt.Sprintf("unable to get SSO connection on group: %s", groupID))
@@ -171,13 +132,32 @@ func (sso *Client) DeleteUsers(groupID, domain, email string, logger *zerolog.Lo
 	logger.Info().Msg(fmt.Sprintf("SSO Connection Name: %s", *(ssoConnection.Data)[0].Attributes.Name))
 
 	ssoConnectionID := *(ssoConnection.Data)[0].ID
-	ssoUsers, err := sso.getSSOUsers(groupID, ssoConnectionID)
-	if err != nil {
-		logger.Error().Err(err).Msg(fmt.Sprintf("unable to get SSO users on connection: %s", *(ssoConnection.Data)[0].Attributes.Name))
-		return fmt.Errorf("unable to get SSO users on connection: %s", *(ssoConnection.Data)[0].Attributes.Name)
+
+	for _, user := range *users.Data {
+		err := sso.deleteSSOUser(groupID, ssoConnectionID, *user.ID)
+		if err != nil {
+			logger.Error().Err(err).Msg(fmt.Sprintf("Failed to delete user: %s", *user.Attributes.Email))
+		} else {
+			logger.Info().Msg(fmt.Sprintf("Deleted user: %s", *user.Attributes.Email))
+		}
 	}
-	// delete matching users
-	count := sso.deleteMatchingUsers(groupID, ssoConnectionID, ssoUsers, domain, email, logger)
-	logger.Info().Msg(fmt.Sprintf("Deleted %d users", count))
 	return nil
+}
+
+// FilterUsersByDomain filters the SSO users based on the provided domain.
+func (sso *Client) FilterUsersByDomain(domain string, users Users, logger *zerolog.Logger) ([]User, error) {
+	var filteredUsers []User
+	for _, user := range *users.Data {
+		if isMatchUserDomain(&user, domain) {
+			filteredUsers = append(filteredUsers, user)
+		}
+	}
+
+	if len(filteredUsers) == 0 {
+		logger.Warn().Msg(fmt.Sprintf("No users found matching domain: %s", domain))
+		return nil, fmt.Errorf("no users found matching domain: %s", domain)
+	}
+
+	logger.Info().Msg(fmt.Sprintf("Filtered %d users matching domain: %s", len(filteredUsers), domain))
+	return filteredUsers, nil
 }

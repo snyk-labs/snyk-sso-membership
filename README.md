@@ -26,12 +26,29 @@ make build
 ## Usage
 ### Executing sync Users Membership
 
-- Specify Snyk `groupID` as an argument with `domain` and `ssoDomain` flags
+Specify Snyk `groupID` as an argument with `domain` and `ssoDomain` flags
+
+#### All Users
+
+This lookups the SSO users to find all Users sharing the same local-part email username for synchronization across domains.
 
 ```bash
 snyk-sso-membership sync <groupID> --domain=source.com --ssoDomain=destination.com
 ```
-This will synchronize Group and Org memberships of SSO Users on the `source.com` domain to their corresponding self on `destination.com` domain.
+
+#### Selective Users (through a CSV file)
+Example CSV (users.csv)
+
+```
+user1@source.com,
+user2@source.com,
+```
+
+```bash
+snyk-sso-membership sync <groupID> --domain=source.com --ssoDomain=destination.com --csvFilePath="./users.csv"
+```
+
+These commands will synchronize Group and Org memberships of SSO Users on the `source.com` domain to their corresponding self on `destination.com` domain.
 
 ### Deleting SSO Users
 
@@ -44,8 +61,12 @@ snyk-sso-membership delete-users <groupID> --email=User1@source.com
 ```
 
 ```bash
-snyk-sso-membership delete-users <groupID> --email=User1@source.com,User2@source.com
+snyk-sso-membership delete-users <groupID> --csvFilePath="./users.csv"
 ```
+
+## Logging
+
+A log file named `snyk-sso-membership_run_<YYYYMMDDHHMMSS>.log` is created for a run of the snyk-sso-membership tool.
 
 ## Note
 

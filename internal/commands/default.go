@@ -2,6 +2,7 @@ package commands
 
 import (
 	"os"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
@@ -9,15 +10,26 @@ import (
 )
 
 var (
-	cliVersion string
-	domain     string
-	ssoDomain  string
-	email      string
+	cliVersion  string
+	domain      string
+	ssoDomain   string
+	email       string
+	csvFilePath string
 )
 
 func DefaultCommand() *cobra.Command {
-	output := zerolog.ConsoleWriter{Out: os.Stderr}
-	logger := zerolog.New(output).With().Timestamp().Logger()
+	currentTime := time.Now()
+	layout := currentTime.Format("20060102150405")
+	// Set the log file name with the current timestamp
+	fileName := "snyk-sso-membership_run_" + layout + ".log"
+	logFile, ferr := os.OpenFile(fileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0664)
+	if ferr != nil {
+		panic(ferr)
+	}
+	// Create a multi-level writer to write logs to both stdout and a file
+	consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout}
+	multiWriter := zerolog.MultiLevelWriter(consoleWriter, logFile)
+	logger := zerolog.New(multiWriter).With().Timestamp().Logger()
 
 	cmd := cobra.Command{
 		Use:                   "snyk-sso-membership",
@@ -46,14 +58,18 @@ func DefaultCommand() *cobra.Command {
 	syncCmd := SyncMemberships(&logger)
 	syncCmd.Flags().StringVar(&domain, "domain", "", "Domain")
 	syncCmd.Flags().StringVar(&ssoDomain, "ssoDomain", "", "Sync Domain")
+	syncCmd.Flags().StringVar(&csvFilePath, "csvFilePath", "", "Path to CSV file containing email addresses (optional)")
 	_ = syncCmd.MarkFlagRequired("domain")
 	_ = syncCmd.MarkFlagRequired("ssoDomain")
+	_ = syncCmd.MarkFlagFilename("csvFilePath", "csv")
 	cmd.AddCommand(syncCmd)
 	deleteUsersCmd := DeleteUsers(&logger)
 	deleteUsersCmd.Flags().StringVar(&domain, "domain", "", "Domain")
 	deleteUsersCmd.Flags().StringVar(&email, "email", "", "Email")
-	deleteUsersCmd.MarkFlagsMutuallyExclusive("domain", "email")
-	deleteUsersCmd.MarkFlagsOneRequired("domain", "email")
+	deleteUsersCmd.Flags().StringVar(&csvFilePath, "csvFilePath", "", "Path to CSV file containing email addresses (optional)")
+	deleteUsersCmd.MarkFlagsMutuallyExclusive("domain", "email", "csvFilePath")
+	deleteUsersCmd.MarkFlagsOneRequired("domain", "email", "csvFilePath")
+	_ = deleteUsersCmd.MarkFlagFilename("csvFilePath", "csv")
 	cmd.AddCommand(deleteUsersCmd)
 
 	// set ldflags input version flag
