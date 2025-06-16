@@ -62,23 +62,23 @@ func New(cfg *config.Config) SnykClient {
 func (c *SnykClientImpl) Request(method, path string, body io.Reader) (*http.Response, error) {
 	base, err := url.Parse(c.baseURI)
 	if err != nil {
-		c.logger.Fatal().Err(err).Msg(fmt.Sprintf("invalid base url: %s", c.baseURI))
+		c.logger.Error().Err(err).Msg(fmt.Sprintf("invalid base url: %s", c.baseURI))
 	}
 	requestPath, err := url.Parse(path)
 	if err != nil {
-		c.logger.Fatal().Err(err).Msg(fmt.Sprintf("failed to parse request path: %s", path))
+		c.logger.Error().Err(err).Msg(fmt.Sprintf("failed to parse request path: %s", path))
 	}
 	requestURL := base.ResolveReference(requestPath)
 
 	urlValue := requestURL.String()
 	req, err := http.NewRequestWithContext(context.Background(), method, urlValue, body)
 	if err != nil {
-		c.logger.Fatal().Err(err).Msg(fmt.Sprintf("failed to create request: %s", err.Error()))
+		c.logger.Error().Err(err).Msg(fmt.Sprintf("failed to create request: %s", err.Error()))
 	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		c.logger.Fatal().Err(err).Msg(fmt.Sprintf("failed to create request url: %s, %s", urlValue, err.Error()))
+		c.logger.Error().Err(err).Msg(fmt.Sprintf("failed to create request url: %s, %s", urlValue, err.Error()))
 		return nil, err
 	}
 	if resp != nil && resp.StatusCode >= http.StatusBadRequest {
@@ -94,17 +94,18 @@ func (c *SnykClientImpl) Request(method, path string, body io.Reader) (*http.Res
 }
 
 func (c *SnykClientImpl) Get(path string) ([]byte, error) {
-	resp, err := c.Request("GET", path, nil)
-	if err != nil {
-		return nil, err
+	resp, respErr := c.Request("GET", path, nil)
+	if resp == nil && respErr != nil {
+		return nil, respErr
 	}
 	defer resp.Body.Close()
 	if body, err := io.ReadAll(resp.Body); err == nil {
 		c.logger.Debug().Msg(string(body))
-		return body, nil
+		// return response error if any
+		return body, respErr
 	}
 
-	return nil, err
+	return nil, respErr
 }
 
 func (c *SnykClientImpl) Post(path string, body io.Reader) ([]byte, error) {
