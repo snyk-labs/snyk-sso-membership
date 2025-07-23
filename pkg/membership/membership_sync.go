@@ -10,17 +10,24 @@ import (
 
 type provisionedUserAttributes struct {
 	id                           *string
-	name                         *string
+	userName                     *string
 	groupMembershipID            *string
 	groupMemberships             *UserGroupMemberships
 	orgMemberships               *UserOrgMemberships
 	provisionedID                *string
+	provisionedUserName          *string
 	provisionedEmail             *string
 	provisionedGroupMembershipID *string
 }
 
+// MatchByUserAttribute checks if the user email matches the provided email local part and domain.
+// It returns true if the user matches by User Identifier or email.
+func matchByUserAttribute(u sso.User, emailLocalPart, emailDomain string, matchByUserName bool) bool {
+	return (matchByUserName && emailLocalPart == *u.Attributes.UserName) || (emailLocalPart+"@"+emailDomain == *u.Attributes.Email)
+}
+
 // Builds a map of the previous domain email of User to its corresponding current provisioned ssoDomain User entity containing its Memberships
-func (m *Client) mapProvisionedUsersAttributes(groupID, domain, ssoDomain string, users sso.Users, logger *zerolog.Logger) (int32, *map[string]provisionedUserAttributes) {
+func (m *Client) mapProvisionedUsersAttributes(groupID, domain, ssoDomain string, users sso.Users, matchByUserName bool, logger *zerolog.Logger) (int32, *map[string]provisionedUserAttributes) {
 	provisionedUserAttributesMap := make(map[string]provisionedUserAttributes)
 
 	for _, u := range *users.Data {
@@ -38,7 +45,7 @@ func (m *Client) mapProvisionedUsersAttributes(groupID, domain, ssoDomain string
 			}
 			provisionedUserAttributesMap[*u.Attributes.Email] = provisionedUserAttributes{
 				id:                u.ID,
-				name:              u.Attributes.Name,
+				userName:          u.Attributes.UserName,
 				groupMembershipID: (*groupMemberships.Data)[0].ID,
 				groupMemberships:  groupMemberships,
 				orgMemberships:    orgMemberships,
@@ -47,13 +54,20 @@ func (m *Client) mapProvisionedUsersAttributes(groupID, domain, ssoDomain string
 	}
 
 	var count int32
-	// populate provisioned User ID and Email on the ssoDomain
+	// populate provisioned User ID, UserName and Email on the ssoDomain
 	for prevEmail, uAttributes := range provisionedUserAttributesMap {
-		emailName := strings.Split(prevEmail, "@")
-		provisionedEmail := emailName[0] + "@" + ssoDomain
+		emailParts := strings.Split(prevEmail, "@")
+		emailLocalPart := emailParts[0]
+		provisionedEmail := emailLocalPart + "@" + ssoDomain
+
 		for _, u := range *users.Data {
-			if provisionedEmail == *u.Attributes.Email {
-				logger.Info().Msg(fmt.Sprintf("User: %s -> %s", prevEmail, provisionedEmail))
+			if matchByUserAttribute(u, emailLocalPart, ssoDomain, matchByUserName) {
+				if matchByUserName && u.Attributes.UserName != nil {
+					logger.Info().Msg(fmt.Sprintf("Matched UserName of User: %s -> %s", prevEmail, *u.Attributes.UserName))
+				} else {
+					logger.Info().Msg(fmt.Sprintf("Matched Email of User: %s -> %s", prevEmail, provisionedEmail))
+				}
+
 				// get the GroupMembership of provisioned User to update
 				pGroupMemberships, err := m.getUserGroupMemberships(groupID, *u.ID)
 				if err == nil && pGroupMemberships != nil && len(*pGroupMemberships.Data) > 0 {
@@ -63,6 +77,7 @@ func (m *Client) mapProvisionedUsersAttributes(groupID, domain, ssoDomain string
 					logger.Warn().Msg(err.Error())
 				}
 				uAttributes.provisionedEmail = &provisionedEmail
+				uAttributes.provisionedUserName = u.Attributes.UserName
 				uAttributes.provisionedID = u.ID
 				provisionedUserAttributesMap[prevEmail] = uAttributes
 				count++
@@ -91,7 +106,7 @@ func (m *Client) updateUserGroupMembership(uAttributes *provisionedUserAttribute
 				logger.Error().Msg(errorMessage)
 			}
 		} else {
-			logger.Info().Msg(fmt.Sprintf("Updated GroupMembership of User: %s, Group: %s", *uAttributes.provisionedEmail, groupName))
+			logger.Info().Msg(fmt.Sprintf("Updated GroupMembership of User: username: %s, email: %s, Group: %s", *uAttributes.provisionedUserName, *uAttributes.provisionedEmail, groupName))
 		}
 	}
 }
@@ -156,7 +171,7 @@ func (m *Client) syncUserOrgMemberships(groupID string, uAttributes *provisioned
 				logger.Error().Msg(errorMessage)
 			}
 		} else {
-			logger.Info().Msg(fmt.Sprintf("Created OrgMembership of User: %s, Org: %s", *uAttributes.provisionedEmail, orgName))
+			logger.Info().Msg(fmt.Sprintf("Created OrgMembership of User: username: %s, email: %s, Org: %s", *uAttributes.provisionedUserName, *uAttributes.provisionedEmail, orgName))
 		}
 	}
 }
@@ -196,15 +211,18 @@ func (m *Client) syncUserGroupMembership(uAttributes *provisionedUserAttributes,
 	}
 }
 
-func (m *Client) SyncMemberships(groupID, domain, ssoDomain string, users sso.Users, logger *zerolog.Logger) {
-	userCount, provisionedUserAttributesMap := m.mapProvisionedUsersAttributes(groupID, domain, ssoDomain, users, logger)
+// Synchronizes memberships of provisioned users with the corresponding SSO users
+// This will update the provisioned user Group and Org memberships to match the pre-migrated user memberships
+// It will also create the provisioned user Group and Org memberships if they do not exist
+func (m *Client) SyncMemberships(groupID, domain, ssoDomain string, users sso.Users, matchByUserName bool, logger *zerolog.Logger) {
+	userCount, provisionedUserAttributesMap := m.mapProvisionedUsersAttributes(groupID, domain, ssoDomain, users, matchByUserName, logger)
 	logger.Info().Msg(fmt.Sprintf("Found %d Users to synchronize", userCount))
 	var index int32
 
 	for _, uAttributes := range *provisionedUserAttributesMap {
 		if uAttributes.provisionedID != nil {
 			index++
-			logger.Info().Msg(fmt.Sprintf("Start synchronization of memberships %d/%d User: %s", index, userCount, *uAttributes.provisionedEmail))
+			logger.Info().Msg(fmt.Sprintf("Start synchronization of memberships %d/%d User: username: %s, email: %s", index, userCount, *uAttributes.provisionedUserName, *uAttributes.provisionedEmail))
 			m.syncUserGroupMembership(&uAttributes, logger)
 			m.syncUserOrgMemberships(groupID, &uAttributes, logger)
 		}

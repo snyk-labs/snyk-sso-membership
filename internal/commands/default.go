@@ -10,11 +10,12 @@ import (
 )
 
 var (
-	cliVersion  string
-	domain      string
-	ssoDomain   string
-	email       string
-	csvFilePath string
+	cliVersion      string
+	domain          string
+	ssoDomain       string
+	email           string
+	csvFilePath     string
+	matchByUserName bool
 )
 
 func DefaultCommand() *cobra.Command {
@@ -59,6 +60,7 @@ func DefaultCommand() *cobra.Command {
 	syncCmd.Flags().StringVar(&domain, "domain", "", "Domain")
 	syncCmd.Flags().StringVar(&ssoDomain, "ssoDomain", "", "Sync Domain")
 	syncCmd.Flags().StringVar(&csvFilePath, "csvFilePath", "", "Path to CSV file containing email addresses (optional)")
+	syncCmd.Flags().BoolVar(&matchByUserName, "matchByUserName", false, "Match by UserName Identifier (default: false)")
 	_ = syncCmd.MarkFlagRequired("domain")
 	_ = syncCmd.MarkFlagRequired("ssoDomain")
 	_ = syncCmd.MarkFlagFilename("csvFilePath", "csv")
@@ -67,6 +69,7 @@ func DefaultCommand() *cobra.Command {
 	deleteUsersCmd.Flags().StringVar(&domain, "domain", "", "Domain")
 	deleteUsersCmd.Flags().StringVar(&email, "email", "", "Email")
 	deleteUsersCmd.Flags().StringVar(&csvFilePath, "csvFilePath", "", "Path to CSV file containing email addresses (optional)")
+	deleteUsersCmd.Flags().BoolVar(&matchByUserName, "matchByUserName", false, "Match by UserName Identifier (default: false)")
 	deleteUsersCmd.MarkFlagsMutuallyExclusive("domain", "email", "csvFilePath")
 	deleteUsersCmd.MarkFlagsOneRequired("domain", "email", "csvFilePath")
 	_ = deleteUsersCmd.MarkFlagFilename("csvFilePath", "csv")

@@ -14,24 +14,27 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// ssoDeleter defines the interface for SSO user operations needed by delete-users.
+type ssoDeleter interface {
+	GetUsers(groupID string, logger *zerolog.Logger) (*sso.Users, error)
+	DeleteUsers(groupID string, users sso.Users, logger *zerolog.Logger) error
+	FilterUsersByDomain(domain string, users sso.Users, matchByUserName bool, logger *zerolog.Logger) ([]sso.User, error)
+}
+
 func DeleteUsers(logger *zerolog.Logger) *cobra.Command {
 	deleteCmd := cobra.Command{
 		Use:                   "delete-users [groupID]",
 		Short:                 "Delete users from a SSO matching specified email or domain address",
 		DisableFlagParsing:    false,
 		DisableFlagsInUseLine: false,
-		Args: func(cmd *cobra.Command, args []string) error {
+		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				logger.Error().Msgf("expected groupID argument, got %d", len(args))
 				return fmt.Errorf("expected groupID argument, got %d", len(args))
 			}
-			groupID := args[0]
-			// get the flags
-			domain := cmd.Flags().Lookup("domain").Value.String()
-			email := cmd.Flags().Lookup("email").Value.String()
-			// optional csv file path will be used if specified, otherwise it will be empty
-			csvFilePath := cmd.Flags().Lookup("csvFilePath").Value.String()
 
+			groupID := args[0]
+			// Validate groupID and the flags
 			_, err := uuid.Parse(groupID)
 			if err != nil {
 				logger.Error().Msgf("groupID must be a valid UUID: %s", args[0])
@@ -61,55 +64,56 @@ func DeleteUsers(logger *zerolog.Logger) *cobra.Command {
 
 			return nil
 		},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			groupID := args[0]
-			// get the mutually exclusive flags i.e. one of 3 flags must be specified
-			domain := cmd.Flags().Lookup("domain").Value.String()
-			email := cmd.Flags().Lookup("email").Value.String()
-			csvFilePath := cmd.Flags().Lookup("csvFilePath").Value.String()
-
+		RunE: func(_ *cobra.Command, args []string) error {
 			c := client.New(config.New())
 			sc := sso.New(c)
-			// get all sso users
-			ssoUsers, err := sc.GetUsers(groupID, logger)
-			if err != nil {
-				logger.Fatal().Err(err).Msg("Failed to get SSO users")
-			}
-
-			if domain != "" {
-				filteredUserData, _ := sc.FilterUsersByDomain(domain, *ssoUsers, logger)
-				ssoUsers.Data = &filteredUserData
-			} else if email != "" {
-				userEmails := []string{email}
-				filteredUserData := filterUsers(userEmails, *ssoUsers, false, logger)
-				ssoUsers.Data = &filteredUserData
-			} else if csvFilePath != "" {
-				csvEmails, err := readCsvFile(csvFilePath, logger)
-				if err != nil {
-					logger.Error().Err(err).Msg("Failed to read CSV file")
-					return err
-				}
-				if len(csvEmails) == 0 {
-					logger.Error().Msg("CSV file is empty")
-					return fmt.Errorf("CSV file is empty")
-				}
-				// filter for a specific SSO User from the provided email in CSV line
-				filteredUserData := filterUsers(csvEmails, *ssoUsers, false, logger)
-				ssoUsers.Data = &filteredUserData
-			}
-
-			// delete matching users
-			if len(*ssoUsers.Data) > 0 {
-				logger.Info().Msgf("Deleting %d users", len(*ssoUsers.Data))
-				_ = sc.DeleteUsers(groupID, *ssoUsers, logger)
-			} else {
-				logger.Info().Msg("No users found matching the specified criteria, no Users to delete")
-			}
-			return nil
+			return runDeleteUsers(args, logger, sc)
 		},
 	}
 
 	return &deleteCmd
+}
+
+func runDeleteUsers(args []string, logger *zerolog.Logger, sc ssoDeleter) error {
+	groupID := args[0]
+
+	// get all sso users
+	ssoUsers, err := sc.GetUsers(groupID, logger)
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to get SSO users")
+		return err
+	}
+
+	if domain != "" {
+		filteredUserData, _ := sc.FilterUsersByDomain(domain, *ssoUsers, matchByUserName, logger)
+		ssoUsers.Data = &filteredUserData
+	} else if email != "" {
+		userEmails := []string{email}
+		filteredUserData := filterUsers(userEmails, *ssoUsers, false, matchByUserName, logger)
+		ssoUsers.Data = &filteredUserData
+	} else if csvFilePath != "" {
+		csvEmails, err := readCsvFile(csvFilePath, logger)
+		if err != nil {
+			logger.Error().Err(err).Msg("Failed to read CSV file")
+			return err
+		}
+		if len(csvEmails) == 0 {
+			logger.Error().Msg("CSV file is empty")
+			return fmt.Errorf("CSV file is empty")
+		}
+		// filter for a specific SSO User from the provided email in CSV line
+		filteredUserData := filterUsers(csvEmails, *ssoUsers, false, matchByUserName, logger)
+		ssoUsers.Data = &filteredUserData
+	}
+
+	// delete matching users
+	if len(*ssoUsers.Data) > 0 {
+		logger.Info().Msgf("Deleting %d users", len(*ssoUsers.Data))
+		_ = sc.DeleteUsers(groupID, *ssoUsers, logger)
+	} else {
+		logger.Info().Msg("No users found matching the specified criteria, no Users to delete")
+	}
+	return nil
 }
 
 // Checks an email is a valid address based on RFC5322 standards

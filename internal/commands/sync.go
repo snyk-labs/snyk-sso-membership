@@ -21,21 +21,13 @@ func SyncMemberships(logger *zerolog.Logger) *cobra.Command {
 	syncCmd := cobra.Command{
 		Use:   "sync [groupID]",
 		Short: "Synchronizes SSO user assigned Group and Org Memberships",
-		Args: func(cmd *cobra.Command, args []string) error {
+		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return fmt.Errorf("expected groupID, arguments specified: %d", len(args))
 			}
 
 			groupID := args[0]
-			// get the 2 required flags
-			domain := cmd.Flags().Lookup("domain").Value.String()
-			ssoDomain := cmd.Flags().Lookup("ssoDomain").Value.String()
-			// optional csv file path will be used if specified, otherwise it will be empty
-			csvFilePathFlag := cmd.Flags().Lookup("csvFilePath")
-			if csvFilePathFlag != nil {
-				csvFilePath = csvFilePathFlag.Value.String()
-			}
-
+			// Validate groupID and the flags
 			_, err := uuid.Parse(groupID)
 			if err != nil {
 				logger.Error().Msgf("groupID must be a valid UUID: %s", args[0])
@@ -60,13 +52,8 @@ func SyncMemberships(logger *zerolog.Logger) *cobra.Command {
 			}
 			return nil
 		},
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			groupID := args[0]
-			// get the 2 required flags
-			domain := cmd.Flags().Lookup("domain").Value.String()
-			ssoDomain := cmd.Flags().Lookup("ssoDomain").Value.String()
-			// optional csvFilePath flag will be used if specified, otherwise it will be empty
-			csvFilePath := cmd.Flags().Lookup("csvFilePath").Value.String()
 
 			// instantiate a new client and sso service
 			c := client.New(config.New())
@@ -89,14 +76,14 @@ func SyncMemberships(logger *zerolog.Logger) *cobra.Command {
 					return fmt.Errorf("CSV file is empty")
 				}
 				// filter SSO individuals with provided CSV emails and include their corresponding provisioned email in the SSO domain
-				filteredUserData := filterUsers(csvEmails, *ssoUsers, true, logger)
+				filteredUserData := filterUsers(csvEmails, *ssoUsers, true, matchByUserName, logger)
 				ssoUsers.Data = &filteredUserData
 			}
 
 			if len(*ssoUsers.Data) > 0 {
 				mc := membership.New(c)
 				// synchronize Group and Org memberships of matching users of domain to ssoDomain
-				mc.SyncMemberships(groupID, domain, ssoDomain, *ssoUsers, logger)
+				mc.SyncMemberships(groupID, domain, ssoDomain, *ssoUsers, matchByUserName, logger)
 			} else {
 				logger.Info().Msgf("No corresponding SSO users found on groupID: %s, no Users to synchronize", groupID)
 			}
@@ -135,37 +122,63 @@ func readCsvFile(filePath string, logger *zerolog.Logger) ([]string, error) {
 }
 
 // filterUsers filters the SSO users with provided CSV emails.
-// Depending on the includeSSODomain flag, this may include the corresponding User on provisioned emails in the SSO domain.
-func filterUsers(emails []string, users sso.Users, includeSSODomain bool, logger *zerolog.Logger) []sso.User {
+// Depending on the includeSSODomain flag, this may include the corresponding same User on the SSO domain.
+func filterUsers(emails []string, users sso.Users, includeSSODomain, matchByUserName bool, logger *zerolog.Logger) []sso.User {
 	var filteredUsers []sso.User
 	for _, email := range emails {
 		foundCount := 0
-		var emailUserName []string
+		var emailParts []string
+		var emailLocalPartName string
+		// ssoDomain is not set in Delete-users execution so provisionedEmail may be an invalid email
+		var provisionedEmail string
+
 		if isValidEmailRFC5322(email) {
-			emailUserName = strings.Split(email, "@")
+			emailParts = strings.Split(email, "@")
+			emailLocalPartName = emailParts[0]
 		} else {
 			logger.Error().Msgf("Invalid email address format: %s", email)
 		}
-		// ssoDomain may not be set so provisionedEmail may be an invalid email
-		var provisionedEmail string
-		if includeSSODomain && ssoDomain != "" && len(emailUserName) > 0 && len(emailUserName[0]) > 0 {
-			provisionedEmail = emailUserName[0] + "@" + ssoDomain
+
+		if includeSSODomain && ssoDomain != "" && emailLocalPartName != "" {
+			provisionedEmail = emailLocalPartName + "@" + ssoDomain
 		}
 
+		// iterate through SSO users looking up Users by matching requested email to their email or UserName
+		// use matchByUserName to match by UserName Identifier
 		for _, user := range *users.Data {
-			if user.Attributes != nil && user.Attributes.Email != nil &&
-				(*user.Attributes.Email == email || *user.Attributes.Email == provisionedEmail) {
+			if (!matchByUserName && (matchUserByEmail(user, email) || (includeSSODomain && matchUserByEmail(user, provisionedEmail)))) ||
+				(matchByUserName && (matchUserByUserName(user, email) || (includeSSODomain && matchUserByUserName(user, emailLocalPartName)))) {
+				// if the User matches by email or UserName, add it to the filteredUsers
 				filteredUsers = append(filteredUsers, user)
 				foundCount++
-				// search through SSO users until we find both the original email and the provisioned email
+				// search through SSO users until we find the original domain User and/or the provisioned User on the SSO domain
 				if (includeSSODomain && foundCount == 2) || !includeSSODomain {
 					break
 				}
 			}
 		}
+		// is includeSSODomain is true, we expect to find the original domain User and the provisioned User on the SSO domain
 		if includeSSODomain && foundCount < 2 {
-			logger.Warn().Msgf("Email %s not found in SSO with a corresponding %s", email, provisionedEmail)
+			if matchByUserName {
+				logger.Warn().Msgf("Email %s not found in SSO with a corresponding User: username: %s", email, emailLocalPartName)
+			} else {
+				logger.Warn().Msgf("Email %s not found in SSO with a corresponding User: email: %s", email, provisionedEmail)
+			}
 		}
 	}
 	return filteredUsers
+}
+
+func matchUserByUserName(u sso.User, userName string) bool {
+	if u.Attributes == nil || u.Attributes.UserName == nil {
+		return false
+	}
+	return userName == *u.Attributes.UserName
+}
+
+func matchUserByEmail(u sso.User, emailAddress string) bool {
+	if u.Attributes == nil || u.Attributes.Email == nil {
+		return false
+	}
+	return emailAddress == *u.Attributes.Email
 }

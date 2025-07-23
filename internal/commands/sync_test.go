@@ -10,127 +10,85 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSyncMemberships_Args_GroupID(t *testing.T) {
+// Helper function to create a string pointer
+func stringPtr(s string) *string {
+	return &s
+}
+
+func TestSyncMemberships_Args(t *testing.T) {
 	logger := zerolog.New(zerolog.NewConsoleWriter())
+	cmd := SyncMemberships(&logger)
+	validUUID := uuid.New().String()
+
+	// Backup and restore package-level flag variables
+	oldDomain, oldSsoDomain, oldCsvFilePath := domain, ssoDomain, csvFilePath
+	defer func() {
+		domain, ssoDomain, csvFilePath = oldDomain, oldSsoDomain, oldCsvFilePath
+	}()
+
+	resetFlags := func() {
+		domain, ssoDomain, csvFilePath = "", "", ""
+	}
+
 	t.Run("invalid number of arguments", func(t *testing.T) {
-		cmd := SyncMemberships(&logger)
-		var domainFlag, ssoDomainFlag string
-		cmd.Flags().StringVar(&domainFlag, "domain", "", "domain flag")
-		cmd.Flags().StringVar(&ssoDomainFlag, "ssoDomain", "", "ssoDomain flag")
-		cmd.SetArgs([]string{})
-		cmd.Flags().Set("domain", "example.com")
-		cmd.Flags().Set("ssoDomain", "sso.example.com")
-		cmd.ParseFlags(nil)
+		resetFlags()
+		domain = "example.com"
+		ssoDomain = "sso.example.com"
 		err := cmd.Args(cmd, []string{})
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "expected groupID")
 	})
 
 	t.Run("invalid groupID", func(t *testing.T) {
-		cmd := SyncMemberships(&logger)
-		var domainFlag, ssoDomainFlag string
-		cmd.Flags().StringVar(&domainFlag, "domain", "", "domain flag")
-		cmd.Flags().StringVar(&ssoDomainFlag, "ssoDomain", "", "ssoDomain flag")
-		cmd.SetArgs([]string{})
-		cmd.Flags().Set("domain", "example.com")
-		cmd.Flags().Set("ssoDomain", "sso.example.com")
-		cmd.ParseFlags(nil)
+		resetFlags()
+		domain = "example.com"
+		ssoDomain = "sso.example.com"
 		err := cmd.Args(cmd, []string{"invalid-uuid"})
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "groupID must be a valid UUID")
 	})
-}
-
-func TestSyncMemberships_Args_DomainValidation(t *testing.T) {
-	logger := zerolog.New(zerolog.NewConsoleWriter())
-	validUUID := uuid.New().String()
 
 	t.Run("invalid domain", func(t *testing.T) {
-		cmd := SyncMemberships(&logger)
-		var domainFlag, ssoDomainFlag string
-		cmd.Flags().StringVar(&domainFlag, "domain", "", "domain flag")
-		cmd.Flags().StringVar(&ssoDomainFlag, "ssoDomain", "", "ssoDomain flag")
-		cmd.SetArgs([]string{validUUID})
-		cmd.Flags().Set("domain", "invalid_domain_@@")
-		cmd.Flags().Set("ssoDomain", "example.com")
-		cmd.ParseFlags(nil)
+		resetFlags()
+		domain = "invalid_domain_@@"
+		ssoDomain = "example.com"
 		err := cmd.Args(cmd, []string{validUUID})
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "domain must be a valid domain name")
 	})
 
 	t.Run("valid domain, invalid ssoDomain", func(t *testing.T) {
-		cmd := SyncMemberships(&logger)
-		var domainFlag, ssoDomainFlag string
-		cmd.Flags().StringVar(&domainFlag, "domain", "", "domain flag")
-		cmd.Flags().StringVar(&ssoDomainFlag, "ssoDomain", "", "ssoDomain flag")
-		cmd.SetArgs([]string{validUUID})
-		cmd.Flags().Set("domain", "example.com")
-		cmd.Flags().Set("ssoDomain", "invalid_sso_domain_@@")
-		cmd.ParseFlags(nil)
+		resetFlags()
+		domain = "example.com"
+		ssoDomain = "invalid_sso_domain_@@"
 		err := cmd.Args(cmd, []string{validUUID})
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "ssoDomain must be a valid domain name")
 	})
 
 	t.Run("valid domain and ssoDomain", func(t *testing.T) {
-		cmd := SyncMemberships(&logger)
-		var domainFlag, ssoDomainFlag string
-		cmd.Flags().StringVar(&domainFlag, "domain", "", "domain flag")
-		cmd.Flags().StringVar(&ssoDomainFlag, "ssoDomain", "", "ssoDomain flag")
-		cmd.SetArgs([]string{validUUID})
-		cmd.Flags().Set("domain", "example.com")
-		cmd.Flags().Set("ssoDomain", "sso.example.com")
-		cmd.ParseFlags(nil)
+		resetFlags()
+		domain = "example.com"
+		ssoDomain = "sso.example.com"
 		err := cmd.Args(cmd, []string{validUUID})
 		assert.NoError(t, err)
 	})
-}
-
-func TestSyncMemberships_Args_CsvFilePathValidation(t *testing.T) {
-	logger := zerolog.New(zerolog.NewConsoleWriter())
-	validUUID := uuid.New().String()
 
 	t.Run("missing csv file", func(t *testing.T) {
-		cmd := SyncMemberships(&logger)
-		var domainFlag, ssoDomainFlag, csvFilePathFlag string
-		cmd.Flags().StringVar(&domainFlag, "domain", "", "domain flag")
-		cmd.Flags().StringVar(&ssoDomainFlag, "ssoDomain", "", "ssoDomain flag")
-		cmd.Flags().StringVar(&csvFilePathFlag, "csvFilePath", "", "csv file path flag")
-		cmd.SetArgs([]string{validUUID})
-		cmd.Flags().Set("domain", "example.com")
-		cmd.Flags().Set("ssoDomain", "sso.example.com")
-		cmd.Flags().Set("csvFilePath", "/path/to/nonexistent.csv")
-		cmd.ParseFlags(nil)
+		resetFlags()
+		domain = "example.com"
+		ssoDomain = "sso.example.com"
+		csvFilePath = "/path/to/nonexistent.csv"
 		err := cmd.Args(cmd, []string{validUUID})
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "csvFile does not exist")
 	})
 
-	t.Run("invalid csv file format", func(t *testing.T) {
-		// Create a temporary invalid CSV file
-		tmpFile, err := os.CreateTemp("", "invalid*.csv")
-		assert.NoError(t, err)
-		defer os.Remove(tmpFile.Name())
-		_, err = tmpFile.WriteString("not,a,valid,csv\n\"unterminated")
-		assert.NoError(t, err)
-		tmpFile.Close()
-
-		cmd := SyncMemberships(&logger)
-		var domainFlag, ssoDomainFlag, csvFilePathFlag string
-		cmd.Flags().StringVar(&domainFlag, "domain", "", "domain flag")
-		cmd.Flags().StringVar(&ssoDomainFlag, "ssoDomain", "", "ssoDomain flag")
-		cmd.Flags().StringVar(&csvFilePathFlag, "csvFilePath", "", "csv file path flag")
-		cmd.SetArgs([]string{validUUID})
-		cmd.Flags().Set("domain", "example.com")
-		cmd.Flags().Set("ssoDomain", "sso.example.com")
-		cmd.Flags().Set("csvFilePath", tmpFile.Name())
-		cmd.ParseFlags(nil)
-		// Args does not parse CSV, so expect no error here
-		err = cmd.Args(cmd, []string{validUUID})
-		assert.NoError(t, err)
-	})
 	t.Run("existing csv file", func(t *testing.T) {
+		resetFlags()
+		domain = "example.com"
+		ssoDomain = "sso.example.com"
+
 		tmpFile, err := os.CreateTemp("", "test*.csv")
 		assert.NoError(t, err)
 		defer os.Remove(tmpFile.Name())
@@ -138,16 +96,7 @@ func TestSyncMemberships_Args_CsvFilePathValidation(t *testing.T) {
 		assert.NoError(t, err)
 		tmpFile.Close()
 
-		cmd := SyncMemberships(&logger)
-		var domainFlag, ssoDomainFlag, csvFilePathFlag string
-		cmd.Flags().StringVar(&domainFlag, "domain", "", "domain flag")
-		cmd.Flags().StringVar(&ssoDomainFlag, "ssoDomain", "", "ssoDomain flag")
-		cmd.Flags().StringVar(&csvFilePathFlag, "csvFilePath", "", "csv file path flag")
-		cmd.SetArgs([]string{validUUID})
-		cmd.Flags().Set("domain", "example.com")
-		cmd.Flags().Set("ssoDomain", "sso.example.com")
-		cmd.Flags().Set("csvFilePath", tmpFile.Name())
-		cmd.ParseFlags(nil)
+		csvFilePath = tmpFile.Name()
 		err = cmd.Args(cmd, []string{validUUID})
 		assert.NoError(t, err)
 	})
@@ -157,22 +106,30 @@ func TestFilterUsers(t *testing.T) {
 	logger := zerolog.Nop()
 
 	// Helper to create sso.User
-	makeUser := func(id, email string) sso.User {
-		return sso.User{ID: &id, Attributes: &struct {
+	makeUser := func(id, email string, username ...string) sso.User {
+		attrs := &struct {
 			Name     *string `json:"name"`
 			Email    *string `json:"email"`
 			UserName *string `json:"username"`
 			Active   *bool   `json:"active"`
-		}{Email: &email}}
+		}{Email: &email}
+		if len(username) > 0 {
+			attrs.UserName = &username[0]
+		}
+		return sso.User{ID: &id, Attributes: attrs}
 	}
 
 	ssoUsers := sso.Users{
 		Data: &[]sso.User{
-			makeUser("id1", "user1@example.com"),
-			makeUser("id2", "user2@example.com"),
-			makeUser("id3", "user1@sso.example.com"), // Corresponds to user1@example.com if ssoDomain is "sso.example.com"
-			makeUser("id4", "user4@another.com"),
-			makeUser("id5", "user5@sso.example.com"), // No corresponding non-sso domain email in this list
+			makeUser("id1", "user1@example.com", "user1"),
+			makeUser("id2", "user2@example.com", "user2"),
+			makeUser("id3", "user1@sso.example.com", "user1-sso"), // Corresponds to user1@example.com if ssoDomain is "sso.example.com"
+			makeUser("id4", "user4@another.com", "user4"),
+			makeUser("id5", "user5@sso.example.com", "user5-sso"), // No corresponding non-sso domain email in this list
+			// for username matching test
+			makeUser("id6", "real.email@example.com", "csv.user"),
+			makeUser("id7", "real.email@sso.example.com", "csv.user.sso"),
+			makeUser("id8", "another.email@sso.example.com", "csv.user"),
 		},
 	}
 
@@ -183,7 +140,7 @@ func TestFilterUsers(t *testing.T) {
 	t.Run("includeSSODomain false - exact match", func(t *testing.T) {
 		ssoDomain = "" // Should not be used
 		emailsToFilter := []string{"user1@example.com", "user4@another.com"}
-		filtered := filterUsers(emailsToFilter, ssoUsers, false, &logger)
+		filtered := filterUsers(emailsToFilter, ssoUsers, false, false, &logger)
 		assert.Len(t, filtered, 2)
 		assert.Equal(t, "user1@example.com", *filtered[0].Attributes.Email)
 		assert.Equal(t, "user4@another.com", *filtered[1].Attributes.Email)
@@ -192,7 +149,7 @@ func TestFilterUsers(t *testing.T) {
 	t.Run("includeSSODomain true - match original and sso domain email", func(t *testing.T) {
 		ssoDomain = "sso.example.com"
 		emailsToFilter := []string{"user1@example.com"}
-		filtered := filterUsers(emailsToFilter, ssoUsers, true, &logger)
+		filtered := filterUsers(emailsToFilter, ssoUsers, true, false, &logger)
 		assert.Len(t, filtered, 2)
 		// Order might vary, so check for presence
 		foundOriginal := false
@@ -212,7 +169,7 @@ func TestFilterUsers(t *testing.T) {
 	t.Run("includeSSODomain true - only original email found", func(t *testing.T) {
 		ssoDomain = "sso.example.com"
 		emailsToFilter := []string{"user2@example.com"} // No user2@sso.example.com in ssoUsers
-		filtered := filterUsers(emailsToFilter, ssoUsers, true, &logger)
+		filtered := filterUsers(emailsToFilter, ssoUsers, true, false, &logger)
 		assert.Len(t, filtered, 1)
 		assert.Equal(t, "user2@example.com", *filtered[0].Attributes.Email)
 	})
@@ -221,7 +178,7 @@ func TestFilterUsers(t *testing.T) {
 		ssoDomain = "sso.example.com"
 		// We filter by "user5@example.com", expecting to find "user5@sso.example.com"
 		emailsToFilter := []string{"user5@example.com"}
-		filtered := filterUsers(emailsToFilter, ssoUsers, true, &logger)
+		filtered := filterUsers(emailsToFilter, ssoUsers, true, false, &logger)
 		assert.Len(t, filtered, 1)
 		assert.Equal(t, "user5@sso.example.com", *filtered[0].Attributes.Email)
 	})
@@ -229,7 +186,7 @@ func TestFilterUsers(t *testing.T) {
 	t.Run("includeSSODomain true - ssoDomain not set", func(t *testing.T) {
 		ssoDomain = ""
 		emailsToFilter := []string{"user1@example.com"}
-		filtered := filterUsers(emailsToFilter, ssoUsers, true, &logger)
+		filtered := filterUsers(emailsToFilter, ssoUsers, true, false, &logger)
 		assert.Len(t, filtered, 1)
 		assert.Equal(t, "user1@example.com", *filtered[0].Attributes.Email)
 	})
@@ -237,14 +194,14 @@ func TestFilterUsers(t *testing.T) {
 	t.Run("no matching users", func(t *testing.T) {
 		ssoDomain = "sso.example.com"
 		emailsToFilter := []string{"nonexistent@example.com"}
-		filtered := filterUsers(emailsToFilter, ssoUsers, false, &logger)
+		filtered := filterUsers(emailsToFilter, ssoUsers, false, false, &logger)
 		assert.Len(t, filtered, 0)
 	})
 
 	t.Run("empty email list", func(t *testing.T) {
 		ssoDomain = "sso.example.com"
 		var emailsToFilter []string
-		filtered := filterUsers(emailsToFilter, ssoUsers, false, &logger)
+		filtered := filterUsers(emailsToFilter, ssoUsers, false, false, &logger)
 		assert.Len(t, filtered, 0)
 	})
 
@@ -252,7 +209,7 @@ func TestFilterUsers(t *testing.T) {
 		ssoDomain = "sso.example.com"
 		emptySsoUsers := sso.Users{Data: &[]sso.User{}}
 		emailsToFilter := []string{"user1@example.com"}
-		filtered := filterUsers(emailsToFilter, emptySsoUsers, false, &logger)
+		filtered := filterUsers(emailsToFilter, emptySsoUsers, false, false, &logger)
 		assert.Len(t, filtered, 0)
 	})
 
@@ -260,13 +217,32 @@ func TestFilterUsers(t *testing.T) {
 		ssoDomain = "sso.example.com"
 		usersWithNil := sso.Users{Data: &[]sso.User{{ID: stringPtr("nil-attr")}, makeUser("id1", "user1@example.com")}}
 		emailsToFilter := []string{"user1@example.com"}
-		filtered := filterUsers(emailsToFilter, usersWithNil, false, &logger)
+		filtered := filterUsers(emailsToFilter, usersWithNil, false, false, &logger)
 		assert.Len(t, filtered, 1)
 		assert.Equal(t, "user1@example.com", *filtered[0].Attributes.Email)
 	})
-}
 
-// Helper function to create a string pointer
-func stringPtr(s string) *string {
-	return &s
+	t.Run("matchByUserName true - match by username", func(t *testing.T) {
+		ssoDomain = "sso.example.com"
+		// The email in the list has local part "csv.user", which should match users by username
+		emailsToFilter := []string{"csv.user@some-domain.com"}
+		filtered := filterUsers(emailsToFilter, ssoUsers, true, true, &logger)
+
+		// It should find user id6 (by username) and id8 (by username)
+		// The inner loop of filterUsers breaks after finding 2 users for a given email.
+		assert.Len(t, filtered, 2)
+
+		foundId6 := false
+		foundId8 := false
+		for _, u := range filtered {
+			if *u.ID == "id6" {
+				foundId6 = true
+			}
+			if *u.ID == "id8" {
+				foundId8 = true
+			}
+		}
+		assert.True(t, foundId6, "User with id6 (username: csv.user) not found")
+		assert.True(t, foundId8, "User with id8 (username: csv.user) not found")
+	})
 }
