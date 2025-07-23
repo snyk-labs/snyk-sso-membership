@@ -128,7 +128,7 @@ func TestDeleteSSOUser_Error(t *testing.T) {
 	mockClient.AssertExpectations(t)
 }
 
-func TestIsMatchUserDomain(t *testing.T) {
+func TestIsMatchUserProfileOnDomain(t *testing.T) {
 	user := &User{
 		Attributes: &struct {
 			Name     *string `json:"name"`
@@ -140,9 +140,9 @@ func TestIsMatchUserDomain(t *testing.T) {
 		},
 	}
 
-	assert.True(t, isMatchUserDomain(user, "example.com"))
-	assert.False(t, isMatchUserDomain(user, "different.com"))
-	assert.False(t, isMatchUserDomain(user, ""))
+	assert.True(t, isUserProfileOfDomain(user, "example.com", false))
+	assert.False(t, isUserProfileOfDomain(user, "different.com", false))
+	assert.False(t, isUserProfileOfDomain(user, "", false))
 }
 
 func TestGetUsers_GetConnectionError(t *testing.T) {
@@ -158,7 +158,6 @@ func TestGetUsers_GetConnectionError(t *testing.T) {
 	assert.Error(t, err)
 	assert.EqualError(t, err, "unable to get SSO connection on group: test-group-id")
 }
-
 
 func TestDeleteUsers_GetConnectionError(t *testing.T) {
 	mockClient := new(mocks.MockSnykClient)
@@ -188,7 +187,6 @@ func TestDeleteUsers_GetConnectionError(t *testing.T) {
 	assert.Error(t, err)
 	assert.EqualError(t, err, "unable to get SSO connection on group: test-group-id")
 }
-
 
 func TestGetUsers_EmptyConnection(t *testing.T) {
 	mockClient := new(mocks.MockSnykClient)
@@ -224,40 +222,53 @@ func TestFilterUsersByDomain(t *testing.T) {
 				Email    *string `json:"email"`
 				UserName *string `json:"username"`
 				Active   *bool   `json:"active"`
-			}{Email: stringPtr("user1@example.com")}},
+			}{Email: stringPtr("user1@example.com"), UserName: stringPtr("user1@example.com")}},
 			{ID: stringPtr("2"), Attributes: &struct {
 				Name     *string `json:"name"`
 				Email    *string `json:"email"`
 				UserName *string `json:"username"`
 				Active   *bool   `json:"active"`
-			}{Email: stringPtr("user2@example.com")}},
+			}{Email: stringPtr("user2@example.com"), UserName: stringPtr("user2@example.com")}},
 			{ID: stringPtr("3"), Attributes: &struct {
 				Name     *string `json:"name"`
 				Email    *string `json:"email"`
 				UserName *string `json:"username"`
 				Active   *bool   `json:"active"`
-			}{Email: stringPtr("user3@another.com")}},
+			}{Email: stringPtr("user3@another.com"), UserName: stringPtr("user3@another.com")}},
 		},
 	}
 
 	t.Run("users match domain", func(t *testing.T) {
-		filtered, err := ssoClient.FilterUsersByDomain("example.com", users, &logger)
+		filtered, err := ssoClient.FilterUsersByDomain("example.com", users, false, &logger)
 		assert.NoError(t, err)
 		assert.Len(t, filtered, 2)
 		assert.Equal(t, "user1@example.com", *filtered[0].Attributes.Email)
 		assert.Equal(t, "user2@example.com", *filtered[1].Attributes.Email)
 	})
 
+	t.Run("users match by username", func(t *testing.T) {
+		filtered, err := ssoClient.FilterUsersByDomain("another.com", users, true, &logger)
+		assert.NoError(t, err)
+		assert.Len(t, filtered, 1)
+		assert.Equal(t, "user3@another.com", *filtered[0].Attributes.UserName)
+	})
+
 	t.Run("no users match domain", func(t *testing.T) {
-		filtered, err := ssoClient.FilterUsersByDomain("nonexistent.com", users, &logger)
+		filtered, err := ssoClient.FilterUsersByDomain("nonexistent.com", users, false, &logger)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "no users found matching domain: nonexistent.com")
 		assert.Nil(t, filtered)
 	})
 
+	t.Run("no users match username", func(t *testing.T) {
+		filtered, err := ssoClient.FilterUsersByDomain("nouser", users, true, &logger)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "no users found matching domain: nouser")
+		assert.Nil(t, filtered)
+	})
+
 	t.Run("empty domain string", func(t *testing.T) {
-		// Based on current implementation, empty domain means no match
-		filtered, err := ssoClient.FilterUsersByDomain("", users, &logger)
+		filtered, err := ssoClient.FilterUsersByDomain("", users, false, &logger)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "no users found matching domain: ")
 		assert.Nil(t, filtered)
@@ -265,7 +276,7 @@ func TestFilterUsersByDomain(t *testing.T) {
 
 	t.Run("empty user list", func(t *testing.T) {
 		emptyUsers := Users{Data: &[]User{}}
-		filtered, err := ssoClient.FilterUsersByDomain("example.com", emptyUsers, &logger)
+		filtered, err := ssoClient.FilterUsersByDomain("example.com", emptyUsers, false, &logger)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "no users found matching domain: example.com")
 		assert.Nil(t, filtered)
@@ -280,11 +291,12 @@ func TestFilterUsersByDomain(t *testing.T) {
 					Email    *string `json:"email"`
 					UserName *string `json:"username"`
 					Active   *bool   `json:"active"`
-				}{Email: stringPtr("user2@example.com")}},
-			}}
-		filtered, err := ssoClient.FilterUsersByDomain("example.com", usersWithNilAttributes, &logger)
+				}{Email: stringPtr("user2@example.com"), UserName: stringPtr("user2@example.com")}},
+			},
+		}
+		filtered, err := ssoClient.FilterUsersByDomain("example.com", usersWithNilAttributes, true, &logger)
 		assert.NoError(t, err)
 		assert.Len(t, filtered, 1)
-		assert.Equal(t, "user2@example.com", *filtered[0].Attributes.Email)
+		assert.Equal(t, "user2@example.com", *filtered[0].Attributes.UserName)
 	})
 }

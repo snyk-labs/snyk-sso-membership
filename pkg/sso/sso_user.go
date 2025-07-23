@@ -76,15 +76,21 @@ func (sso *Client) getSSOUsers(groupID, ssoConnectionID string) (*Users, error) 
 	return &ssoUsers, nil
 }
 
-// Checks whether domain matches User email domain
-func isMatchUserDomain(user *User, domain string) bool {
+// Checks whether User profile matches the provided domain.
+// It checks if the User's email or username (depending on the matchByUserName flag) ends with the provided domain.
+func isUserProfileOfDomain(user *User, domain string, matchByUserName bool) bool {
 	isMatched := false
-	var userEmail *string
-	if user.Attributes != nil && user.Attributes.Email != nil {
-		userEmail = user.Attributes.Email
+	var userProfile *string
+
+	if user.Attributes != nil {
+		if matchByUserName && user.Attributes.UserName != nil {
+			userProfile = user.Attributes.UserName
+		} else if user.Attributes.Email != nil {
+			userProfile = user.Attributes.Email
+		}
 	}
 
-	if domain != "" && userEmail != nil && strings.HasSuffix(*userEmail, "@"+domain) {
+	if domain != "" && userProfile != nil && strings.HasSuffix(*userProfile, "@"+domain) {
 		isMatched = true
 	}
 
@@ -136,19 +142,19 @@ func (sso *Client) DeleteUsers(groupID string, users Users, logger *zerolog.Logg
 	for _, user := range *users.Data {
 		err := sso.deleteSSOUser(groupID, ssoConnectionID, *user.ID)
 		if err != nil {
-			logger.Error().Err(err).Msg(fmt.Sprintf("Failed to delete user: %s", *user.Attributes.Email))
+			logger.Error().Err(err).Msg(fmt.Sprintf("Failed to delete User: username: %s, email: %s", *user.Attributes.UserName, *user.Attributes.Email))
 		} else {
-			logger.Info().Msg(fmt.Sprintf("Deleted user: %s", *user.Attributes.Email))
+			logger.Info().Msg(fmt.Sprintf("Deleted User: username: %s, email: %s", *user.Attributes.UserName, *user.Attributes.Email))
 		}
 	}
 	return nil
 }
 
 // FilterUsersByDomain filters the SSO users based on the provided domain.
-func (sso *Client) FilterUsersByDomain(domain string, users Users, logger *zerolog.Logger) ([]User, error) {
+func (sso *Client) FilterUsersByDomain(domain string, users Users, matchByUserName bool, logger *zerolog.Logger) ([]User, error) {
 	var filteredUsers []User
 	for _, user := range *users.Data {
-		if isMatchUserDomain(&user, domain) {
+		if isUserProfileOfDomain(&user, domain, matchByUserName) {
 			filteredUsers = append(filteredUsers, user)
 		}
 	}
