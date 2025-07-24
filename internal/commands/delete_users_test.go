@@ -52,6 +52,37 @@ func makeUserForDeleteTest(id, email string, username ...string) sso.User {
 	return sso.User{ID: &id, Attributes: attrs}
 }
 
+func TestDeleteUsersCommand_Args(t *testing.T) {
+	logger := zerolog.New(zerolog.NewConsoleWriter())
+	cmd := DeleteUsers(&logger)
+
+	// Backup and restore package-level flag variables
+	oldDomain, oldEmail, oldCsvFilePath := domain, email, csvFilePath
+	defer func() {
+		domain, email, csvFilePath = oldDomain, oldEmail, oldCsvFilePath
+	}()
+
+	resetFlags := func() {
+		domain, email, csvFilePath = "", "", ""
+	}
+
+	t.Run("invalid number of arguments", func(t *testing.T) {
+		resetFlags()
+		domain = "example.com"
+		err := cmd.Args(cmd, []string{})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "expected groupID")
+	})
+
+	t.Run("invalid groupID", func(t *testing.T) {
+		resetFlags()
+		domain = "example.com"
+		err := cmd.Args(cmd, []string{"invalid-uuid"})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "groupID must be a valid UUID")
+	})
+}
+
 func TestRunDeleteUsers(t *testing.T) {
 	logger := zerolog.Nop()
 	validUUID := uuid.New().String()

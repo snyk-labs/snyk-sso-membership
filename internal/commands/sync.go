@@ -76,14 +76,14 @@ func SyncMemberships(logger *zerolog.Logger) *cobra.Command {
 					return fmt.Errorf("CSV file is empty")
 				}
 				// filter SSO individuals with provided CSV emails and include their corresponding provisioned email in the SSO domain
-				filteredUserData := filterUsers(csvEmails, *ssoUsers, true, matchByUserName, logger)
+				filteredUserData := filterUsers(csvEmails, *ssoUsers, true, matchByUserName, matchToLocalPart, logger)
 				ssoUsers.Data = &filteredUserData
 			}
 
 			if len(*ssoUsers.Data) > 0 {
 				mc := membership.New(c)
 				// synchronize Group and Org memberships of matching users of domain to ssoDomain
-				mc.SyncMemberships(groupID, domain, ssoDomain, *ssoUsers, matchByUserName, logger)
+				mc.SyncMemberships(groupID, domain, ssoDomain, *ssoUsers, matchByUserName, matchToLocalPart, logger)
 			} else {
 				logger.Info().Msgf("No corresponding SSO users found on groupID: %s, no Users to synchronize", groupID)
 			}
@@ -123,32 +123,30 @@ func readCsvFile(filePath string, logger *zerolog.Logger) ([]string, error) {
 
 // filterUsers filters the SSO users with provided CSV emails.
 // Depending on the includeSSODomain flag, this may include the corresponding same User on the SSO domain.
-func filterUsers(emails []string, users sso.Users, includeSSODomain, matchByUserName bool, logger *zerolog.Logger) []sso.User {
+func filterUsers(emails []string, users sso.Users, includeSSODomain, matchByUserName, matchToLocalPart bool, logger *zerolog.Logger) []sso.User {
 	var filteredUsers []sso.User
 	for _, email := range emails {
 		foundCount := 0
 		var emailParts []string
-		var emailLocalPartName string
+		var localPart string
 		// ssoDomain is not set in Delete-users execution so provisionedEmail may be an invalid email
 		var provisionedEmail string
 
 		if isValidEmailRFC5322(email) {
 			emailParts = strings.Split(email, "@")
-			emailLocalPartName = emailParts[0]
+			localPart = emailParts[0]
 		} else {
 			logger.Error().Msgf("Invalid email address format: %s", email)
 		}
 
-		if includeSSODomain && ssoDomain != "" && emailLocalPartName != "" {
-			provisionedEmail = emailLocalPartName + "@" + ssoDomain
+		if includeSSODomain && ssoDomain != "" && localPart != "" {
+			provisionedEmail = localPart + "@" + ssoDomain
 		}
 
-		// iterate through SSO users looking up Users by matching requested email to their email or UserName
-		// use matchByUserName to match by UserName Identifier
+		// iterate through SSO users looking up the domain User and the provisioned User on the SSO domain
 		for _, user := range *users.Data {
-			if (!matchByUserName && (matchUserByEmail(user, email) || (includeSSODomain && matchUserByEmail(user, provisionedEmail)))) ||
-				(matchByUserName && (matchUserByUserName(user, email) || (includeSSODomain && matchUserByUserName(user, emailLocalPartName)))) {
-				// if the User matches by email or UserName, add it to the filteredUsers
+			// match domain user based on matchByUserName and SSO domain user based on matchToLocalPart
+			if matchDomainUser(user, email, matchByUserName) || matchSSODomainUser(user, provisionedEmail, localPart, matchToLocalPart) {
 				filteredUsers = append(filteredUsers, user)
 				foundCount++
 				// search through SSO users until we find the original domain User and/or the provisioned User on the SSO domain
@@ -160,7 +158,7 @@ func filterUsers(emails []string, users sso.Users, includeSSODomain, matchByUser
 		// is includeSSODomain is true, we expect to find the original domain User and the provisioned User on the SSO domain
 		if includeSSODomain && foundCount < 2 {
 			if matchByUserName {
-				logger.Warn().Msgf("Email %s not found in SSO with a corresponding User: username: %s", email, emailLocalPartName)
+				logger.Warn().Msgf("Email %s not found in SSO with a corresponding User: username: %s", email, localPart)
 			} else {
 				logger.Warn().Msgf("Email %s not found in SSO with a corresponding User: email: %s", email, provisionedEmail)
 			}
@@ -169,6 +167,25 @@ func filterUsers(emails []string, users sso.Users, includeSSODomain, matchByUser
 	return filteredUsers
 }
 
+// matchDomainUser checks if the user matches the provided email based on matchByUserName flag.
+func matchDomainUser(u sso.User, email string, matchByUserName bool) bool {
+	if matchByUserName && u.Attributes != nil && u.Attributes.UserName != nil {
+		return email == *u.Attributes.UserName
+	} else if !matchByUserName && u.Attributes != nil && u.Attributes.Email != nil {
+		return email == *u.Attributes.Email
+	}
+	return false
+}
+
+// matchSSODomainUser checks if the user matches the provisioned email or local part based on matchToLocalPart flag.
+func matchSSODomainUser(u sso.User, provisionedEmail, localPart string, matchToLocalPart bool) bool {
+	if matchToLocalPart {
+		return matchUserByUserName(u, localPart)
+	}
+	return matchUserByEmail(u, provisionedEmail)
+}
+
+// matchUserByUserName checks if the user's UserName matches the provided userName.
 func matchUserByUserName(u sso.User, userName string) bool {
 	if u.Attributes == nil || u.Attributes.UserName == nil {
 		return false
@@ -176,6 +193,7 @@ func matchUserByUserName(u sso.User, userName string) bool {
 	return userName == *u.Attributes.UserName
 }
 
+// matchUserByEmail checks if the user's email matches the provided email address.
 func matchUserByEmail(u sso.User, emailAddress string) bool {
 	if u.Attributes == nil || u.Attributes.Email == nil {
 		return false

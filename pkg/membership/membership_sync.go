@@ -20,18 +20,24 @@ type provisionedUserAttributes struct {
 	provisionedGroupMembershipID *string
 }
 
-// MatchByUserAttribute checks if the user email matches the provided email local part and domain.
-// It returns true if the user matches by User Identifier or email.
-func matchByUserAttribute(u sso.User, emailLocalPart, emailDomain string, matchByUserName bool) bool {
-	return (matchByUserName && emailLocalPart == *u.Attributes.UserName) || (emailLocalPart+"@"+emailDomain == *u.Attributes.Email)
+// matchToUserProperty checks user properties against the local part or provisioned email based on matchToLocalPart flag.
+// It returns true if the user matches either the local part at the username property or the provisoned email at email property.
+func matchToUserProperty(u sso.User, localPart, provisionedEmail string, matchToLocalPart bool) bool {
+	if matchToLocalPart && u.Attributes.UserName != nil {
+		return localPart == *u.Attributes.UserName
+	} else if !matchToLocalPart && u.Attributes.Email != nil {
+		return provisionedEmail == *u.Attributes.Email
+	}
+
+	return false
 }
 
 // Builds a map of the previous domain email of User to its corresponding current provisioned ssoDomain User entity containing its Memberships
-func (m *Client) mapProvisionedUsersAttributes(groupID, domain, ssoDomain string, users sso.Users, matchByUserName bool, logger *zerolog.Logger) (int32, *map[string]provisionedUserAttributes) {
+func (m *Client) mapProvisionedUsersAttributes(groupID, domain, ssoDomain string, users sso.Users, matchByUserName, matchToLocalPart bool, logger *zerolog.Logger) (int32, *map[string]provisionedUserAttributes) {
 	provisionedUserAttributesMap := make(map[string]provisionedUserAttributes)
 
 	for _, u := range *users.Data {
-		if strings.HasSuffix(*u.Attributes.Email, domain) {
+		if (!matchByUserName && strings.HasSuffix(*u.Attributes.Email, domain)) || (matchByUserName && strings.HasSuffix(*u.Attributes.UserName, domain)) {
 			userID := *u.ID
 			groupMemberships, err := m.getUserGroupMemberships(groupID, userID)
 			if err != nil || groupMemberships == nil || len(*groupMemberships.Data) == 0 {
@@ -43,7 +49,14 @@ func (m *Client) mapProvisionedUsersAttributes(groupID, domain, ssoDomain string
 				logger.Info().Msg(fmt.Sprintf("No existent Org membership found for user: %s", *u.Attributes.Email))
 				logger.Warn().Msg(err.Error())
 			}
-			provisionedUserAttributesMap[*u.Attributes.Email] = provisionedUserAttributes{
+			var prevKeyIdentifier string
+			if matchByUserName {
+				prevKeyIdentifier = *u.Attributes.UserName
+			} else {
+				prevKeyIdentifier = *u.Attributes.Email
+			}
+
+			provisionedUserAttributesMap[prevKeyIdentifier] = provisionedUserAttributes{
 				id:                u.ID,
 				userName:          u.Attributes.UserName,
 				groupMembershipID: (*groupMemberships.Data)[0].ID,
@@ -55,17 +68,17 @@ func (m *Client) mapProvisionedUsersAttributes(groupID, domain, ssoDomain string
 
 	var count int32
 	// populate provisioned User ID, UserName and Email on the ssoDomain
-	for prevEmail, uAttributes := range provisionedUserAttributesMap {
-		emailParts := strings.Split(prevEmail, "@")
-		emailLocalPart := emailParts[0]
-		provisionedEmail := emailLocalPart + "@" + ssoDomain
+	for prevKeyID, uAttributes := range provisionedUserAttributesMap {
+		emailParts := strings.Split(prevKeyID, "@")
+		localPart := emailParts[0]
+		provisionedEmail := localPart + "@" + ssoDomain
 
 		for _, u := range *users.Data {
-			if matchByUserAttribute(u, emailLocalPart, ssoDomain, matchByUserName) {
-				if matchByUserName && u.Attributes.UserName != nil {
-					logger.Info().Msg(fmt.Sprintf("Matched UserName of User: %s -> %s", prevEmail, *u.Attributes.UserName))
+			if matchToUserProperty(u, localPart, provisionedEmail, matchToLocalPart) {
+				if matchToLocalPart && u.Attributes.UserName != nil {
+					logger.Info().Msg(fmt.Sprintf("Matched %s -> User: username: %s", prevKeyID, *u.Attributes.UserName))
 				} else {
-					logger.Info().Msg(fmt.Sprintf("Matched Email of User: %s -> %s", prevEmail, provisionedEmail))
+					logger.Info().Msg(fmt.Sprintf("Matched %s -> User: email:  %s", prevKeyID, provisionedEmail))
 				}
 
 				// get the GroupMembership of provisioned User to update
@@ -79,7 +92,7 @@ func (m *Client) mapProvisionedUsersAttributes(groupID, domain, ssoDomain string
 				uAttributes.provisionedEmail = &provisionedEmail
 				uAttributes.provisionedUserName = u.Attributes.UserName
 				uAttributes.provisionedID = u.ID
-				provisionedUserAttributesMap[prevEmail] = uAttributes
+				provisionedUserAttributesMap[prevKeyID] = uAttributes
 				count++
 				break
 			}
@@ -214,8 +227,8 @@ func (m *Client) syncUserGroupMembership(uAttributes *provisionedUserAttributes,
 // Synchronizes memberships of provisioned users with the corresponding SSO users
 // This will update the provisioned user Group and Org memberships to match the pre-migrated user memberships
 // It will also create the provisioned user Group and Org memberships if they do not exist
-func (m *Client) SyncMemberships(groupID, domain, ssoDomain string, users sso.Users, matchByUserName bool, logger *zerolog.Logger) {
-	userCount, provisionedUserAttributesMap := m.mapProvisionedUsersAttributes(groupID, domain, ssoDomain, users, matchByUserName, logger)
+func (m *Client) SyncMemberships(groupID, domain, ssoDomain string, users sso.Users, matchByUserName, matchToLocalPart bool, logger *zerolog.Logger) {
+	userCount, provisionedUserAttributesMap := m.mapProvisionedUsersAttributes(groupID, domain, ssoDomain, users, matchByUserName, matchToLocalPart, logger)
 	logger.Info().Msg(fmt.Sprintf("Found %d Users to synchronize", userCount))
 	var index int32
 

@@ -10,12 +10,13 @@ import (
 )
 
 var (
-	cliVersion      string
-	domain          string
-	ssoDomain       string
-	email           string
-	csvFilePath     string
-	matchByUserName bool
+	cliVersion       string
+	domain           string
+	ssoDomain        string
+	email            string
+	csvFilePath      string
+	matchByUserName  bool
+	matchToLocalPart bool
 )
 
 func DefaultCommand() *cobra.Command {
@@ -61,6 +62,7 @@ func DefaultCommand() *cobra.Command {
 	syncCmd.Flags().StringVar(&ssoDomain, "ssoDomain", "", "Sync Domain")
 	syncCmd.Flags().StringVar(&csvFilePath, "csvFilePath", "", "Path to CSV file containing email addresses (optional)")
 	syncCmd.Flags().BoolVar(&matchByUserName, "matchByUserName", false, "Match by UserName Identifier (default: false)")
+	syncCmd.Flags().BoolVar(&matchToLocalPart, "matchToLocalPart", false, "Match to Local Part Identifier on SSO domain (default: false)")
 	_ = syncCmd.MarkFlagRequired("domain")
 	_ = syncCmd.MarkFlagRequired("ssoDomain")
 	_ = syncCmd.MarkFlagFilename("csvFilePath", "csv")
