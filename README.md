@@ -53,19 +53,30 @@ user2@source.com,
 snyk-sso-membership sync <groupID> --domain=source.com --ssoDomain=destination.com --csvFilePath="./users.csv"
 ```
 
-#### Matching User Option (matchByUserName)
-In the case of an unique User identification on a non-email format string e.g. through SAML NameID, use the `matchByUserName` flag. This will search its corresponding User on the SSO connection with a Snyk profile matching `username` to the email local-part name of the source domain User. The default value of this optional flag is `false` i.e. search by user email address.
+#### Matching Source User Option (matchByUserName)
+Use `matchByUserName` flag to search a source domain User on the SSO connection with a Snyk profile matching `username` to the requested email. The default value of this optional flag is `false` i.e. search Snyk profile by `email` property.
 
 Example:
 
-For a Snyk User `abc` with a Profile of username as `abc@source.com` and email as `abc@source.com`, `matchByUserName` option will find the corresponding User self having a profile
-of `username` as strictly `abc`.
+For a Snyk User `abc` with a source profile of username as `abc@source.com` and email as `abc@sg.source.com`, `matchByUserName` option will find a User self having a profile of `username` (instead of `email`) as `abc@source.com` and then lookup the destination SSO domain User with a profile of `email` as `abc@destination.com`.
 
 ```bash
 snyk-sso-membership sync <groupID> --domain=source.com --ssoDomain=destination.com --csvFilePath="./users.csv" --matchByUserName
 ```
 
+#### Matching Destination User Option (matchToLocalPart)
+Use `matchToLocalPart` flag to find the corresponding destination SSO domain User on the SSO connection with a Snyk profile matching `username` to the local-part of the source domain email. This is applicable in a setup of unique User identification in a non-email format string e.g. through SAML NameID
+
+Example:
+
+For a Snyk User `abc` with a source profile of email as `abc@source.com`, `matchToLocalPart` option will find a corresponding User having a profile of `username` (instead of `email`) as strictly `abc`.
+
+```bash
+snyk-sso-membership sync <groupID> --domain=source.com --ssoDomain=destination.com --csvFilePath="./users.csv" --matchToLocalPart
+```
+
 These commands will synchronize Group and Org memberships of SSO Users on the `source.com` domain to their corresponding self on `destination.com` domain.
+The 2 optional flags allow selection of the source domain User (`matchByUserName`) and selection of the destination SSO domain User (`matchToLocalPart`) respectively.
 
 ### Deleting SSO Users
 Deleting a SSO user is applicable for a single domain and does not lookup a corresponding User on the `destination.com` domain. 

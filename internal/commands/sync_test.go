@@ -130,6 +130,7 @@ func TestFilterUsers(t *testing.T) {
 			makeUser("id6", "real.email@example.com", "csv.user"),
 			makeUser("id7", "real.email@sso.example.com", "csv.user.sso"),
 			makeUser("id8", "another.email@sso.example.com", "csv.user"),
+			makeUser("id9", "user-to-match@by.username", "user-to-match@by.username"),
 		},
 	}
 
@@ -140,7 +141,7 @@ func TestFilterUsers(t *testing.T) {
 	t.Run("includeSSODomain false - exact match", func(t *testing.T) {
 		ssoDomain = "" // Should not be used
 		emailsToFilter := []string{"user1@example.com", "user4@another.com"}
-		filtered := filterUsers(emailsToFilter, ssoUsers, false, false, &logger)
+		filtered := filterUsers(emailsToFilter, ssoUsers, false, false, false, &logger)
 		assert.Len(t, filtered, 2)
 		assert.Equal(t, "user1@example.com", *filtered[0].Attributes.Email)
 		assert.Equal(t, "user4@another.com", *filtered[1].Attributes.Email)
@@ -149,7 +150,7 @@ func TestFilterUsers(t *testing.T) {
 	t.Run("includeSSODomain true - match original and sso domain email", func(t *testing.T) {
 		ssoDomain = "sso.example.com"
 		emailsToFilter := []string{"user1@example.com"}
-		filtered := filterUsers(emailsToFilter, ssoUsers, true, false, &logger)
+		filtered := filterUsers(emailsToFilter, ssoUsers, true, false, false, &logger)
 		assert.Len(t, filtered, 2)
 		// Order might vary, so check for presence
 		foundOriginal := false
@@ -169,7 +170,7 @@ func TestFilterUsers(t *testing.T) {
 	t.Run("includeSSODomain true - only original email found", func(t *testing.T) {
 		ssoDomain = "sso.example.com"
 		emailsToFilter := []string{"user2@example.com"} // No user2@sso.example.com in ssoUsers
-		filtered := filterUsers(emailsToFilter, ssoUsers, true, false, &logger)
+		filtered := filterUsers(emailsToFilter, ssoUsers, true, false, false, &logger)
 		assert.Len(t, filtered, 1)
 		assert.Equal(t, "user2@example.com", *filtered[0].Attributes.Email)
 	})
@@ -178,7 +179,7 @@ func TestFilterUsers(t *testing.T) {
 		ssoDomain = "sso.example.com"
 		// We filter by "user5@example.com", expecting to find "user5@sso.example.com"
 		emailsToFilter := []string{"user5@example.com"}
-		filtered := filterUsers(emailsToFilter, ssoUsers, true, false, &logger)
+		filtered := filterUsers(emailsToFilter, ssoUsers, true, false, false, &logger)
 		assert.Len(t, filtered, 1)
 		assert.Equal(t, "user5@sso.example.com", *filtered[0].Attributes.Email)
 	})
@@ -186,7 +187,7 @@ func TestFilterUsers(t *testing.T) {
 	t.Run("includeSSODomain true - ssoDomain not set", func(t *testing.T) {
 		ssoDomain = ""
 		emailsToFilter := []string{"user1@example.com"}
-		filtered := filterUsers(emailsToFilter, ssoUsers, true, false, &logger)
+		filtered := filterUsers(emailsToFilter, ssoUsers, true, false, false, &logger)
 		assert.Len(t, filtered, 1)
 		assert.Equal(t, "user1@example.com", *filtered[0].Attributes.Email)
 	})
@@ -194,14 +195,14 @@ func TestFilterUsers(t *testing.T) {
 	t.Run("no matching users", func(t *testing.T) {
 		ssoDomain = "sso.example.com"
 		emailsToFilter := []string{"nonexistent@example.com"}
-		filtered := filterUsers(emailsToFilter, ssoUsers, false, false, &logger)
+		filtered := filterUsers(emailsToFilter, ssoUsers, false, false, false, &logger)
 		assert.Len(t, filtered, 0)
 	})
 
 	t.Run("empty email list", func(t *testing.T) {
 		ssoDomain = "sso.example.com"
 		var emailsToFilter []string
-		filtered := filterUsers(emailsToFilter, ssoUsers, false, false, &logger)
+		filtered := filterUsers(emailsToFilter, ssoUsers, false, false, false, &logger)
 		assert.Len(t, filtered, 0)
 	})
 
@@ -209,7 +210,7 @@ func TestFilterUsers(t *testing.T) {
 		ssoDomain = "sso.example.com"
 		emptySsoUsers := sso.Users{Data: &[]sso.User{}}
 		emailsToFilter := []string{"user1@example.com"}
-		filtered := filterUsers(emailsToFilter, emptySsoUsers, false, false, &logger)
+		filtered := filterUsers(emailsToFilter, emptySsoUsers, false, false, false, &logger)
 		assert.Len(t, filtered, 0)
 	})
 
@@ -217,16 +218,30 @@ func TestFilterUsers(t *testing.T) {
 		ssoDomain = "sso.example.com"
 		usersWithNil := sso.Users{Data: &[]sso.User{{ID: stringPtr("nil-attr")}, makeUser("id1", "user1@example.com")}}
 		emailsToFilter := []string{"user1@example.com"}
-		filtered := filterUsers(emailsToFilter, usersWithNil, false, false, &logger)
+		filtered := filterUsers(emailsToFilter, usersWithNil, false, false, false, &logger)
 		assert.Len(t, filtered, 1)
 		assert.Equal(t, "user1@example.com", *filtered[0].Attributes.Email)
 	})
 
-	t.Run("matchByUserName true - match by username", func(t *testing.T) {
+	t.Run("matchByUserName true, matchToLocalPart false - match by full username string", func(t *testing.T) {
+		ssoDomain = "sso.example.com"
+		// The full string from the CSV is used for matching against the UserName attribute.
+		emailsToFilter := []string{"user-to-match@by.username"}
+		filtered := filterUsers(emailsToFilter, ssoUsers, true, true, false, &logger)
+
+		// It should find user id9, which has a UserName of "user-to-match@by.username"
+		assert.Len(t, filtered, 1)
+		assert.Equal(t, "id9", *filtered[0].ID)
+	})
+
+	t.Run("matchByUserName and matchToLocalPart true - match by local part username", func(t *testing.T) {
 		ssoDomain = "sso.example.com"
 		// The email in the list has local part "csv.user", which should match users by username
 		emailsToFilter := []string{"csv.user@some-domain.com"}
-		filtered := filterUsers(emailsToFilter, ssoUsers, true, true, &logger)
+		// With matchToLocalPart=true, the logic also checks for username matching the local part of the email.
+		// The logic is: `matchUserByUserName(user, email) || (includeSSODomain && matchToLocalPart && matchUserByUserName(user, localPart))`
+		// This will match users where UserName is "csv.user".
+		filtered := filterUsers(emailsToFilter, ssoUsers, true, true, true, &logger)
 
 		// It should find user id6 (by username) and id8 (by username)
 		// The inner loop of filterUsers breaks after finding 2 users for a given email.

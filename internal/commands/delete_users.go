@@ -89,7 +89,7 @@ func runDeleteUsers(args []string, logger *zerolog.Logger, sc ssoDeleter) error 
 		ssoUsers.Data = &filteredUserData
 	} else if email != "" {
 		userEmails := []string{email}
-		filteredUserData := filterUsers(userEmails, *ssoUsers, false, matchByUserName, logger)
+		filteredUserData := filterUsers(userEmails, *ssoUsers, false, matchByUserName, matchToLocalPart, logger)
 		ssoUsers.Data = &filteredUserData
 	} else if csvFilePath != "" {
 		csvEmails, err := readCsvFile(csvFilePath, logger)
@@ -102,7 +102,7 @@ func runDeleteUsers(args []string, logger *zerolog.Logger, sc ssoDeleter) error 
 			return fmt.Errorf("CSV file is empty")
 		}
 		// filter for a specific SSO User from the provided email in CSV line
-		filteredUserData := filterUsers(csvEmails, *ssoUsers, false, matchByUserName, logger)
+		filteredUserData := filterUsers(csvEmails, *ssoUsers, false, matchByUserName, matchToLocalPart, logger)
 		ssoUsers.Data = &filteredUserData
 	}
 
