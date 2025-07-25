@@ -86,7 +86,7 @@ func (m *Client) mapProvisionedUsersAttributes(groupID, domain, ssoDomain string
 				if err == nil && pGroupMemberships != nil && len(*pGroupMemberships.Data) > 0 {
 					uAttributes.provisionedGroupMembershipID = (*pGroupMemberships.Data)[0].ID
 				} else if err != nil {
-					logger.Info().Msg(fmt.Sprintf("No existent Group membership found for user: %s", provisionedEmail))
+					logger.Info().Msg(fmt.Sprintf("No existent Group membership found for User: username: %s", *u.Attributes.UserName))
 					logger.Warn().Msg(err.Error())
 				}
 				uAttributes.provisionedEmail = &provisionedEmail
@@ -115,21 +115,21 @@ func (m *Client) updateUserGroupMembership(uAttributes *provisionedUserAttribute
 			errorMessage := err.Error()
 			// make it idempotent by ignoring status code 409 Conflict - Membership already exists for the specified user error
 			if !strings.HasSuffix(errorMessage, "409") {
-				logger.Info().Msg(fmt.Sprintf("Failed to update GroupMembership of User: %s, Group: %s", *uAttributes.provisionedEmail, groupName))
+				logger.Info().Msg(fmt.Sprintf("Failed to update GroupMembership of User: username: %s, Group: %s", *uAttributes.provisionedUserName, groupName))
 				logger.Error().Msg(errorMessage)
 			}
 		} else {
-			logger.Info().Msg(fmt.Sprintf("Updated GroupMembership of User: username: %s, email: %s, Group: %s", *uAttributes.provisionedUserName, *uAttributes.provisionedEmail, groupName))
+			logger.Info().Msg(fmt.Sprintf("Updated GroupMembership of User: username: %s, Group: %s", *uAttributes.provisionedUserName, groupName))
 		}
 	}
 }
 
 // Deletes the current provisioned ssoDomain User org memberships
-func (m *Client) deleteUserOrgMembership(groupID, userID, userEmail string, logger *zerolog.Logger) error {
+func (m *Client) deleteUserOrgMembership(groupID, userID, userIdentifier string, logger *zerolog.Logger) error {
 	// get User org memberships
 	userOrgMemberships, err := m.getUserOrgMembershipsOfGroup(groupID, userID)
 	if err != nil {
-		logger.Info().Msg(fmt.Sprintf("Failed to get org memberships of User: %s", userEmail))
+		logger.Info().Msg(fmt.Sprintf("Failed to get org memberships of User: username: %s", userIdentifier))
 		logger.Error().Msg(err.Error())
 		return err
 	}
@@ -140,7 +140,7 @@ func (m *Client) deleteUserOrgMembership(groupID, userID, userEmail string, logg
 		orgName := *om.Relationship.Org.Data.Attributes.Name
 		err := m.deleteOrgMembership(*orgID, *om.ID)
 		if err != nil {
-			logger.Info().Msg(fmt.Sprintf("Failed to delete OrgMembership of User: %s, Org: %s", userEmail, orgName))
+			logger.Info().Msg(fmt.Sprintf("Failed to delete OrgMembership of User: username: %s, Org: %s", userIdentifier, orgName))
 			logger.Error().Msg(err.Error())
 		}
 	}
@@ -150,9 +150,9 @@ func (m *Client) deleteUserOrgMembership(groupID, userID, userEmail string, logg
 // Synchronizes provisioned user Org memberships with corresponding Org Role of the pre-migrated user across all Orgs
 func (m *Client) syncUserOrgMemberships(groupID string, uAttributes *provisionedUserAttributes, logger *zerolog.Logger) {
 	// synchronizes by first scrubbing all provisioned user org memberships if existent
-	err := m.deleteUserOrgMembership(groupID, *uAttributes.provisionedID, *uAttributes.provisionedEmail, logger)
+	err := m.deleteUserOrgMembership(groupID, *uAttributes.provisionedID, *uAttributes.provisionedUserName, logger)
 	if err != nil {
-		logger.Warn().Msg(fmt.Sprintf("Failed to delete OrgMembership of User: %s", *uAttributes.provisionedEmail))
+		logger.Warn().Msg(fmt.Sprintf("Failed to delete OrgMembership of User: username: %s", *uAttributes.provisionedUserName))
 	}
 
 	for _, om := range *uAttributes.orgMemberships.Data {
@@ -180,11 +180,11 @@ func (m *Client) syncUserOrgMemberships(groupID string, uAttributes *provisioned
 			errorMessage := err.Error()
 			// make it idempotent by ignoring Error status code 409 Conflict - Membership already exists for the specified user
 			if !strings.HasSuffix(errorMessage, "409") {
-				logger.Error().Msg(fmt.Sprintf("Failed to create OrgMembership of User: %s, Org: %s", *uAttributes.provisionedEmail, orgName))
+				logger.Error().Msg(fmt.Sprintf("Failed to create OrgMembership of User: username: %s, Org: %s", *uAttributes.provisionedUserName, orgName))
 				logger.Error().Msg(errorMessage)
 			}
 		} else {
-			logger.Info().Msg(fmt.Sprintf("Created OrgMembership of User: username: %s, email: %s, Org: %s", *uAttributes.provisionedUserName, *uAttributes.provisionedEmail, orgName))
+			logger.Info().Msg(fmt.Sprintf("Created OrgMembership of User: username: %s, Org: %s", *uAttributes.provisionedUserName, orgName))
 		}
 	}
 }
@@ -217,9 +217,9 @@ func (m *Client) syncUserGroupMembership(uAttributes *provisionedUserAttributes,
 		groupName := *gm.Relationship.Group.Data.Attributes.Name
 		_, err := m.createUserGroupMembership(*groupID, groupMbrRelationship)
 		if err != nil {
-			logger.Error().Msg(fmt.Sprintf("Failed to create GroupMembership of User: %s, Group: %s", *uAttributes.provisionedEmail, groupName))
+			logger.Error().Msg(fmt.Sprintf("Failed to create GroupMembership of User: username: %s, Group: %s", *uAttributes.provisionedUserName, groupName))
 		} else {
-			logger.Info().Msg(fmt.Sprintf("Created GroupMembership of User: %s, Group: %s", *uAttributes.provisionedEmail, groupName))
+			logger.Info().Msg(fmt.Sprintf("Created GroupMembership of User: username: %s, Group: %s", *uAttributes.provisionedUserName, groupName))
 		}
 	}
 }
@@ -235,7 +235,7 @@ func (m *Client) SyncMemberships(groupID, domain, ssoDomain string, users sso.Us
 	for _, uAttributes := range *provisionedUserAttributesMap {
 		if uAttributes.provisionedID != nil {
 			index++
-			logger.Info().Msg(fmt.Sprintf("Start synchronization of memberships %d/%d User: username: %s, email: %s", index, userCount, *uAttributes.provisionedUserName, *uAttributes.provisionedEmail))
+			logger.Info().Msg(fmt.Sprintf("Start synchronization of memberships %d/%d User: username: %s", index, userCount, *uAttributes.provisionedUserName))
 			m.syncUserGroupMembership(&uAttributes, logger)
 			m.syncUserOrgMemberships(groupID, &uAttributes, logger)
 		}

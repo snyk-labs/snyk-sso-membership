@@ -24,7 +24,7 @@ type ssoDeleter interface {
 func DeleteUsers(logger *zerolog.Logger) *cobra.Command {
 	deleteCmd := cobra.Command{
 		Use:                   "delete-users [groupID]",
-		Short:                 "Delete users from a SSO matching specified email or domain address",
+		Short:                 "Delete users from a SSO matching specified email or domain address or identifier",
 		DisableFlagParsing:    false,
 		DisableFlagsInUseLine: false,
 		Args: func(_ *cobra.Command, args []string) error {
