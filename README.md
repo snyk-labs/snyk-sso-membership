@@ -88,11 +88,11 @@ snyk-sso-membership sync <groupID> --domain=source.com --ssoDomain=destination.c
 * `--matchByUserName` (Optional Flag): By default, the tool matches the source user by their Snyk user profile
    `email`. Use this flag if the user's identifying email (e.g. `user@source.com`) is in their `username` profile property instead.
 * `--matchToLocalPart` (Optional Flag): Use this for advanced cases where the destination user is identified by a non-email username (e.g., from a SAML NameID). This will match the
-   `username` of the destination user to the local-part (the part before the `@`) of the source user's email.
+   `username` of the destination user to the local-part (the part before the `@`) of the source user's email. This flag is therefore mutually exclusive to the `ssoDomain` flag.
 
 ### **`delete-users`: Deleting SSO Users**
 
-This command deletes SSO users associated with a single, specified domain.
+This command deletes SSO users by email addresses or the unique identifier of a User.
 
 #### **Delete All Users in a Domain**
 
