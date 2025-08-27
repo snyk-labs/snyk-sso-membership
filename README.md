@@ -11,14 +11,41 @@ This tool helps solve the challenge of migrating users who have the same usernam
 
 * **Synchronize Memberships**: Copy a user's Snyk Group and Organization roles from a source domain account to a destination domain account.
 * **Delete Users**: Bulk-delete Snyk SSO users from a specific domain, useful for decommissioning a deprecated domain after migration.
-* **Flexible User Matching**: Provides advanced options to match users based on email, username, or the local-part of an email, accommodating complex identity provider (IdP) setups.
+* **Flexible User Matching**: Provides advanced options to match Snyk users based on email, username property values, or the local-part of an email, accommodating complex identity provider (IdP) setups.
+
+## Snyk User Profiles
+
+A Snyk User is identified on the SSO connection through a Snyk profile e.g.
+
+```json
+{
+    "type": "user",
+    "id": "bb5f4804-7190-444e-99dc-47604ccd4867",
+    "attributes": {
+        "name": "Alpha Bravo Charlie",
+        "email": "abc.xyz@xyz.com",
+        "username": "abc@abc.com",
+        "active": true
+    }
+},
+{
+    "type": "user",
+    "id": "9fe58235-93c8-47b0-807a-ab3ac0bdb5aa",
+    "attributes": {
+        "name": "Alpha Bravo Charlie",
+        "email": "abc.xyz@def.com",
+        "username": "abc.xyz",
+        "active": true
+    }
+}
+```
 
 ## **⚠️ Important Behavior**
 
 Please read these points carefully before using the tool.
 
-* **Destructive Sync:** The `sync` command performs a **full synchronization**. The destination user's list of Organization memberships will become an exact mirror of the source user's list. Any memberships the destination user had that the source user did not will be **deleted**.
-* **Email Notifications:** Both the `sync` and `delete-users` commands will trigger standard Snyk email notifications to the affected users. For example, a deleted user will immediately receive an email stating "Your Snyk account was deleted".
+* **Destructive Sync:** The `sync` command performs a **full synchronization**. The destination-domain user's list of Organization memberships will become an exact mirror of the source user's list. Any memberships the destination-domain user had that the source-domain user did not will be **deleted**.
+* **Email Notifications:** The `delete-users` command will trigger standard Snyk email notifications to the affected users. For example, a deleted user will immediately receive an email stating "Your Snyk account was deleted". This email notification is handled by Snyk platform and is not configurable.
 
 ## **Getting Started**
 
@@ -64,7 +91,7 @@ snyk-sso-membership sync <groupID> --domain=source.com --ssoDomain=destination.c
 
 #### **Sync a Selective List of Users**
 
-You can provide a CSV file containing a list of source user emails to sync.
+You can provide a CSV file containing a list of source-domain user emails to sync.
 
 Example
 
@@ -85,10 +112,14 @@ snyk-sso-membership sync <groupID> --domain=source.com --ssoDomain=destination.c
 
 #### **`sync` Command Options**
 
-* `--matchByUserName` (Optional Flag): By default, the tool matches the source user by their Snyk user profile
-   `email`. Use this flag if the user's identifying email (e.g. `user@source.com`) is in their `username` profile property instead.
-* `--matchToLocalPart` (Optional Flag): Use this for advanced cases where the destination user is identified by a non-email username (e.g., from a SAML NameID). This will match the
-   `username` of the destination user to the local-part (the part before the `@`) of the source user's email. This flag is therefore mutually exclusive to the `ssoDomain` flag.
+* `--matchByUserName` (Optional Flag): By default, the tool matches the source-domain user by their Snyk user `email` property value. Use this flag if the user's identifying email (e.g. `user@source.com`) is in their `username` profile property instead.
+* `--matchToLocalPart` (Optional Flag): Use this for advanced cases where a destination-domain user is identified by a non-email address username (e.g. SCIM provisioned users based on IdP `nameIdAttributes`). This option will match _local-part_ (the part before the `@`) of the source-domain user's email address against the `username` property value of a destination-domain user on the SSO connection. By default without this flag, the identification of a destination-domain user is applied by matching a "_local-part@ssoDomain_" value against the `email` property value. This flag is therefore mutually exclusive to the `ssoDomain` flag.
+
+#### **`sync` Flow Diagram**
+
+![sync-flow-diagram](docs/images/sync-flow-diagram.png)
+
+These 2 command options provide flexibility on identifying and matching a source-domain to its similar destination-domain Snyk user.
 
 ### **`delete-users`: Deleting SSO Users**
 
