@@ -1,11 +1,12 @@
 ![Snyk logo](https://snyk.io/style/asset/logo/snyk-print.svg)
 # **Snyk SSO Membership Tool**
 
-A command-line (CLI) tool built in Go to help Snyk Group Administrators manage user memberships during a Single Sign On (SSO) domain migration.
+This is a command-line (CLI) tool built in Go to help Snyk Group Administrators manage user memberships during a Single Sign On (SSO) domain migration.
 
-This tool helps solve the challenge of migrating users who have the same username but will exist across two different email domains (e.g.,
+This tool helps solve the challenge of migrating Group and Organization memberships of Snyk users who are represented across two different email domains on a SSO connection. Example: 
 
-`user@source.com` and `user@destination.com`).
+- `user@source.com` to `user@destination.com` (by `email` property)
+- `user@source.com` to `user` (by `username` property)
 
 ## **Key Features**
 
