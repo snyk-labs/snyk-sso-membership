@@ -52,13 +52,10 @@ Please read these points carefully before using the tool.
 
 ### **Prerequisites**
 
-You will need a Snyk Service Account token with the
+You will need a Snyk Service Account API token with:
 
-**Group Admin** role.
-
-This token must be set as an environment variable named
-
-`SNYK_TOKEN`.
+- **Group Admin** role
+- Exported as an environment variable named `SNYK_TOKEN`
 
 ```bash
 export SNYK_TOKEN=<your_snyk_api_token>
@@ -118,9 +115,9 @@ snyk-sso-membership sync <groupID> --domain=source.com --ssoDomain=destination.c
 
 #### **`sync` Flow Diagram**
 
-![sync-flow-diagram](docs/images/sync-flow-diagram.png)
+![sync-flow-diagram](docs/images/sync-flow-diagram.svg)
 
-These 2 command options provide flexibility on identifying and matching a source-domain to its similar destination-domain Snyk user.
+These 2 command options provide flexibility on identifying and matching a source-domain to its similar destination-domain Snyk user. If these CLI flags are not provided, they are defaulted to false.
 
 ### **`delete-users`: Deleting SSO Users**
 
