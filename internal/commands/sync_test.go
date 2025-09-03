@@ -106,25 +106,25 @@ func TestFilterUsers(t *testing.T) {
 	logger := zerolog.Nop()
 
 	// Helper to create sso.User
-	makeUser := func(id, email string, username ...string) sso.User {
-		attrs := &struct {
-			Name     *string `json:"name"`
-			Email    *string `json:"email"`
-			UserName *string `json:"username"`
-			Active   *bool   `json:"active"`
-		}{Email: &email}
-		if len(username) > 0 {
-			attrs.UserName = &username[0]
-		}
-		return sso.User{ID: &id, Attributes: attrs}
-	}
+	// makeUser := func(id, email string, username ...string) sso.User {
+	// 	attrs := &struct {
+	// 		Name     *string `json:"name"`
+	// 		Email    *string `json:"email"`
+	// 		UserName *string `json:"username"`
+	// 		Active   *bool   `json:"active"`
+	// 	}{Email: &email}
+	// 	if len(username) > 0 {
+	// 		attrs.UserName = &username[0]
+	// 	}
+	// 	return sso.User{ID: &id, Attributes: attrs}
+	// }
 
 	ssoUsers := sso.Users{
 		Data: &[]sso.User{
-			makeUser("id1", "user1@example.com", "user1"),
-			makeUser("id2", "user2@example.com", "user2"),
+			makeUser("id1", "user1@example.com", "user1@example2.com"),
+			makeUser("id2", "user2@example.com", "user2@example2.com"),
 			makeUser("id3", "user1@sso.example.com", "user1-sso"), // Corresponds to user1@example.com if ssoDomain is "sso.example.com"
-			makeUser("id4", "user4@another.com", "user4"),
+			makeUser("id4", "user4@another.com", "user4@another2.com"),
 			makeUser("id5", "user5@sso.example.com", "user5-sso"), // No corresponding non-sso domain email in this list
 			// for username matching test
 			makeUser("id6", "real.email@example.com", "csv.user"),
@@ -216,7 +216,7 @@ func TestFilterUsers(t *testing.T) {
 
 	t.Run("user with nil attributes or email", func(t *testing.T) {
 		ssoDomain = "sso.example.com"
-		usersWithNil := sso.Users{Data: &[]sso.User{{ID: stringPtr("nil-attr")}, makeUser("id1", "user1@example.com")}}
+		usersWithNil := sso.Users{Data: &[]sso.User{{ID: stringPtr("nil-attr")}, makeUser("id1", "user1@example.com", "user1@example2.com")}}
 		emailsToFilter := []string{"user1@example.com"}
 		filtered := filterUsers(emailsToFilter, usersWithNil, false, false, false, &logger)
 		assert.Len(t, filtered, 1)
@@ -260,4 +260,135 @@ func TestFilterUsers(t *testing.T) {
 		assert.True(t, foundId6, "User with id6 (username: csv.user) not found")
 		assert.True(t, foundId8, "User with id8 (username: csv.user) not found")
 	})
+}
+
+// Helper to create sso.User
+func makeUser(id, email string, username ...string) sso.User {
+	user := sso.User{
+		ID: &id,
+		Attributes: &struct {
+			Name     *string `json:"name"`
+			Email    *string `json:"email"`
+			UserName *string `json:"username"`
+			Active   *bool   `json:"active"`
+		}{
+			Email: &email,
+		},
+	}
+	if len(username) > 0 {
+		user.Attributes.UserName = &username[0]
+	}
+	return user
+}
+
+func TestMatchDomainUser(t *testing.T) {
+	stringp := func(s string) *string { return &s }
+
+	testCases := []struct {
+		name            string
+		user            sso.User
+		email           string
+		matchByUserName bool
+		want            bool
+	}{
+		{
+			name: "match by username when matchByUserName is true",
+			user: sso.User{
+				Attributes: &struct {
+					Name     *string `json:"name"`
+					Email    *string `json:"email"`
+					UserName *string `json:"username"`
+					Active   *bool   `json:"active"`
+				}{
+					Email:    stringp("different@example.com"),
+					UserName: stringp("test@example.com"),
+				},
+			},
+			email:           "test@example.com",
+			matchByUserName: true,
+			want:            true,
+		},
+		{
+			name: "match by email when matchByUserName is false",
+			user: sso.User{
+				Attributes: &struct {
+					Name     *string `json:"name"`
+					Email    *string `json:"email"`
+					UserName *string `json:"username"`
+					Active   *bool   `json:"active"`
+				}{
+					Email:    stringp("test@example.com"),
+					UserName: stringp("test@example.com"), // valid email format required
+				},
+			},
+			email:           "test@example.com",
+			matchByUserName: false,
+			want:            true,
+		},
+		{
+			name: "fail match by email when username is not valid email format",
+			user: sso.User{
+				Attributes: &struct {
+					Name     *string `json:"name"`
+					Email    *string `json:"email"`
+					UserName *string `json:"username"`
+					Active   *bool   `json:"active"`
+				}{
+					Email:    stringp("test@example.com"),
+					UserName: stringp("invalid-username"), // not valid email format
+				},
+			},
+			email:           "test@example.com",
+			matchByUserName: false,
+			want:            false,
+		},
+		{
+			name: "fail when attributes are nil",
+			user: sso.User{
+				Attributes: nil,
+			},
+			email:           "test@example.com",
+			matchByUserName: false,
+			want:            false,
+		},
+		{
+			name: "fail when email is nil",
+			user: sso.User{
+				Attributes: &struct {
+					Name     *string `json:"name"`
+					Email    *string `json:"email"`
+					UserName *string `json:"username"`
+					Active   *bool   `json:"active"`
+				}{
+					UserName: stringp("test@example.com"),
+				},
+			},
+			email:           "test@example.com",
+			matchByUserName: false,
+			want:            false,
+		},
+		{
+			name: "fail when username is nil",
+			user: sso.User{
+				Attributes: &struct {
+					Name     *string `json:"name"`
+					Email    *string `json:"email"`
+					UserName *string `json:"username"`
+					Active   *bool   `json:"active"`
+				}{
+					Email: stringp("test@example.com"),
+				},
+			},
+			email:           "test@example.com",
+			matchByUserName: false,
+			want:            false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := matchDomainUser(tc.user, tc.email, tc.matchByUserName)
+			assert.Equal(t, tc.want, got, "matchDomainUser() = %v, want %v", got, tc.want)
+		})
+	}
 }
