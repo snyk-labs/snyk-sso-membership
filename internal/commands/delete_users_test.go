@@ -89,9 +89,9 @@ func TestRunDeleteUsers(t *testing.T) {
 
 	allSsoUsers := &sso.Users{
 		Data: &[]sso.User{
-			makeUserForDeleteTest("id1", "user1@example.com", "user1"),
-			makeUserForDeleteTest("id2", "user2@example.com", "user2"),
-			makeUserForDeleteTest("id3", "user3@another.com", "user3"),
+			makeUserForDeleteTest("id1", "user1@example.com", "user1@example2.com"),
+			makeUserForDeleteTest("id2", "user2@example.com", "user2@example2.com"),
+			makeUserForDeleteTest("id3", "user3@another.com", "user3@another2.com"),
 			makeUserForDeleteTest("id4", "user4@example.com", "user4@example.com"),
 		},
 	}
@@ -125,8 +125,8 @@ func TestRunDeleteUsers(t *testing.T) {
 		// Expect DeleteUsers to be called with the filtered users
 		expectedUsersToDelete := sso.Users{
 			Data: &[]sso.User{
-				makeUserForDeleteTest("id1", "user1@example.com", "user1"),
-				makeUserForDeleteTest("id2", "user2@example.com", "user2"),
+				makeUserForDeleteTest("id1", "user1@example.com", "user1@example2.com"),
+				makeUserForDeleteTest("id2", "user2@example.com", "user2@example2.com"),
 			},
 		}
 		mockSso.On("DeleteUsers", validUUID, mock.Anything, &logger).Run(func(args mock.Arguments) {
@@ -244,8 +244,8 @@ func TestRunDeleteUsers(t *testing.T) {
 		mockSso.On("GetUsers", validUUID, &logger).Return(allSsoUsers, nil).Once()
 
 		filteredUsers := []sso.User{
-			makeUserForDeleteTest("id1", "user1@example.com", "user1"),
-			makeUserForDeleteTest("id2", "user2@example.com", "user2"),
+			makeUserForDeleteTest("id1", "user1@example.com", "user1@example2.com"),
+			makeUserForDeleteTest("id2", "user2@example.com", "user2@example2.com"),
 			makeUserForDeleteTest("id4", "user4@example.com", "user4@example.com"),
 		}
 		mockSso.On("FilterUsersByDomain", domain, *allSsoUsers, false, &logger).Return(filteredUsers, nil).Once()
@@ -270,7 +270,7 @@ func TestRunDeleteUsers(t *testing.T) {
 
 		expectedUsersToDelete := sso.Users{
 			Data: &[]sso.User{
-				makeUserForDeleteTest("id1", "user1@example.com", "user1"),
+				makeUserForDeleteTest("id1", "user1@example.com", "user1@example2.com"),
 			},
 		}
 		mockSso.On("DeleteUsers", validUUID, mock.Anything, &logger).Run(func(args mock.Arguments) {

@@ -165,12 +165,13 @@ func filterUsers(emails []string, users sso.Users, includeSSODomain, matchByUser
 	return filteredUsers
 }
 
-// matchDomainUser checks if the user matches the provided email based on matchByUserName flag.
+// matchDomainUser checks if the user matches the provided email address based on matchByUserName flag.
 func matchDomainUser(u sso.User, email string, matchByUserName bool) bool {
 	if matchByUserName && u.Attributes != nil && u.Attributes.UserName != nil {
 		return email == *u.Attributes.UserName
 	} else if !matchByUserName && u.Attributes != nil && u.Attributes.Email != nil {
-		return email == *u.Attributes.Email
+		// assert source domain user with valid username and email attribute values of email-address format
+		return email == *u.Attributes.Email && u.Attributes.UserName != nil && isValidEmailRFC5322(*u.Attributes.UserName)
 	}
 	return false
 }
