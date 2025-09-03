@@ -29,7 +29,7 @@ func DefaultCommand() *cobra.Command {
 		panic(ferr)
 	}
 	// Create a multi-level writer to write logs to both stdout and a file
-	consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout}
+	consoleWriter := zerolog.ConsoleWriter{Out: os.Stderr}
 	multiWriter := zerolog.MultiLevelWriter(consoleWriter, logFile)
 	logger := zerolog.New(multiWriter).With().Timestamp().Logger()
 
@@ -68,6 +68,7 @@ func DefaultCommand() *cobra.Command {
 	syncCmd.MarkFlagsMutuallyExclusive("ssoDomain", "matchToLocalPart")
 	syncCmd.MarkFlagsOneRequired("ssoDomain", "matchToLocalPart")
 	cmd.AddCommand(syncCmd)
+
 	deleteUsersCmd := DeleteUsers(&logger)
 	deleteUsersCmd.Flags().StringVar(&domain, "domain", "", "Domain")
 	deleteUsersCmd.Flags().StringVar(&email, "email", "", "Email")
@@ -77,6 +78,15 @@ func DefaultCommand() *cobra.Command {
 	deleteUsersCmd.MarkFlagsOneRequired("domain", "email", "csvFilePath")
 	_ = deleteUsersCmd.MarkFlagFilename("csvFilePath", "csv")
 	cmd.AddCommand(deleteUsersCmd)
+
+	getUsersCmd := GetUsers(&logger)
+	getUsersCmd.Flags().StringVar(&domain, "domain", "", "Domain")
+	getUsersCmd.Flags().StringVar(&email, "email", "", "Email")
+	getUsersCmd.Flags().StringVar(&csvFilePath, "csvFilePath", "", "Path to CSV file containing email addresses (optional)")
+	getUsersCmd.Flags().BoolVar(&matchByUserName, "matchByUserName", false, "Match by UserName Identifier (default: false)")
+	getUsersCmd.MarkFlagsMutuallyExclusive("domain", "email", "csvFilePath")
+	_ = getUsersCmd.MarkFlagFilename("csvFilePath", "csv")
+	cmd.AddCommand(getUsersCmd)
 
 	// set ldflags input version flag
 	cmd.SetVersionTemplate(cliVersion)

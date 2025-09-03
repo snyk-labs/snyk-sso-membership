@@ -1,9 +1,7 @@
 package commands
 
 import (
-	"encoding/csv"
 	"fmt"
-	"io"
 	"os"
 	"regexp"
 	"strings"
@@ -91,34 +89,6 @@ func SyncMemberships(logger *zerolog.Logger) *cobra.Command {
 		},
 	}
 	return &syncCmd
-}
-
-// readCsvFile reads a CSV file and returns a slice of emails found in the first column.
-func readCsvFile(filePath string, logger *zerolog.Logger) ([]string, error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		logger.Error().Err(err).Msgf("Failed to open CSV file: %s", filePath)
-		return nil, err
-	}
-	defer file.Close()
-	// Read the CSV file and extract emails
-	reader := csv.NewReader(file)
-	var csvEmails []string
-
-	for {
-		record, err := reader.Read()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			logger.Error().Err(err).Msg("Failed to read record in CSV file")
-		}
-		if len(record) > 0 && record[0] != "" {
-			csvEmails = append(csvEmails, record[0])
-		}
-	}
-
-	return csvEmails, nil
 }
 
 // filterUsers filters the SSO users with provided CSV emails.

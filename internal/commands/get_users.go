@@ -2,8 +2,11 @@ package commands
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"regexp"
+	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
@@ -13,16 +16,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// ssoDeleter defines the interface for SSO user operations needed by delete-users.
-type ssoDeleter interface {
-	userFetcher
-	DeleteUsers(groupID string, users sso.Users, logger *zerolog.Logger) error
-}
-
-func DeleteUsers(logger *zerolog.Logger) *cobra.Command {
-	deleteCmd := cobra.Command{
-		Use:                   "delete-users [groupID]",
-		Short:                 "Delete users from a SSO matching specified email or domain address or identifier",
+func GetUsers(logger *zerolog.Logger) *cobra.Command {
+	getCmd := cobra.Command{
+		Use:                   "get-users [groupID]",
+		Short:                 "Get users from a SSO matching specified criteria and output as CSV",
 		DisableFlagParsing:    false,
 		DisableFlagsInUseLine: false,
 		Args: func(_ *cobra.Command, args []string) error {
@@ -65,14 +62,14 @@ func DeleteUsers(logger *zerolog.Logger) *cobra.Command {
 		RunE: func(_ *cobra.Command, args []string) error {
 			c := client.New(config.New())
 			sc := sso.New(c)
-			return runDeleteUsers(args, logger, sc)
+			return runGetUsers(args, logger, sc)
 		},
 	}
 
-	return &deleteCmd
+	return &getCmd
 }
 
-func runDeleteUsers(args []string, logger *zerolog.Logger, sc ssoDeleter) error {
+func runGetUsers(args []string, logger *zerolog.Logger, sc userFetcher) error {
 	groupID := args[0]
 
 	ssoUsers, err := getAndFilterUsers(groupID, logger, sc)
@@ -80,12 +77,53 @@ func runDeleteUsers(args []string, logger *zerolog.Logger, sc ssoDeleter) error 
 		return err
 	}
 
-	// delete matching users
+	// return matching users
 	if len(*ssoUsers.Data) > 0 {
-		logger.Info().Msgf("Deleting %d users", len(*ssoUsers.Data))
-		_ = sc.DeleteUsers(groupID, *ssoUsers, logger)
+		header := []string{"username", "email", "name", "active"}
+		if err := writeQuotedRecord(os.Stdout, header); err != nil {
+			logger.Error().Err(err).Msg("failed to write csv header")
+			return err
+		}
+
+		for _, user := range *ssoUsers.Data {
+			var username, email, name, active string
+			if user.Attributes != nil {
+				if user.Attributes.UserName != nil {
+					username = *user.Attributes.UserName
+				}
+				if user.Attributes.Email != nil {
+					email = *user.Attributes.Email
+				}
+				if user.Attributes.Name != nil {
+					name = *user.Attributes.Name
+				}
+				if user.Attributes.Active != nil {
+					active = strconv.FormatBool(*user.Attributes.Active)
+				}
+			}
+			record := []string{username, email, name, active}
+			if err := writeQuotedRecord(os.Stdout, record); err != nil {
+				logger.Error().Err(err).Msg("failed to write csv record")
+				return err
+			}
+		}
 	} else {
-		logger.Info().Msg("No users found matching the specified criteria, no Users to delete")
+		logger.Error().Msg("No users found matching the specified criteria")
 	}
 	return nil
+}
+
+func writeQuotedRecord(writer io.Writer, record []string) error {
+	var b strings.Builder
+	for i, field := range record {
+		if i > 0 {
+			b.WriteString(",")
+		}
+		b.WriteString(`"`)
+		b.WriteString(strings.ReplaceAll(field, `"`, `""`))
+		b.WriteString(`"`)
+	}
+	b.WriteString("\n")
+	_, err := writer.Write([]byte(b.String()))
+	return err
 }

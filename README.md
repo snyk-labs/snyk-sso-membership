@@ -12,7 +12,7 @@ This tool helps solve the challenge of migrating Group and Organization membersh
 
 * **Synchronize Memberships**: Copy a user's Snyk Group and Organization roles from a source domain account to a destination domain account.
 * **Delete Users**: Bulk-delete Snyk SSO users from a specific domain, useful for decommissioning a deprecated domain after migration.
-* **Flexible User Matching**: Provides advanced options to match Snyk users based on email, username property values, or the local-part of an email, accommodating complex identity provider (IdP) setups.
+* **Flexible User Matching**: Provides advanced options to match Snyk users based on email, username property values, or the local-part of an email address, accommodating complex identity provider (IdP) setups.
 
 ## Snyk User Profiles
 
@@ -119,19 +119,39 @@ snyk-sso-membership sync <groupID> --domain=source.com --ssoDomain=destination.c
 
 These 2 command options provide flexibility on identifying and matching a source-domain to its similar destination-domain Snyk user. If these CLI flags are not provided, they are defaulted to false.
 
+### **`get-users`: Getting SSO Users**
+
+This command gets SSO users on the SSO connection bound to the Snyk Group. See following commands to redirect output to a comma-separated (CSV) file.
+
+#### **Get All Users**
+
+```bash
+snyk-sso-membership get-users <groupID> > myusers.csv
+```
+
+#### **Get Users by Domain or Email or CSV file**
+
+```bash
+# Get all users on an email domain
+snyk-sso-membership get-users <groupID> --domain=source.com > myusers.csv
+
+# Get a single user by email-address corresponding to their email property
+snyk-sso-membership get-users <groupID> --email=user1@source.com > myusers.csv
+
+# Get a list of users from a CSV file
+snyk-sso-membership get-users <groupID> --csvFilePath="./users.csv" > myusers.csv
+```
+
 ### **`delete-users`: Deleting SSO Users**
 
 This command deletes SSO users by email addresses or the unique identifier of a User.
 
-#### **Delete All Users in a Domain**
+#### **Delete Users by Domain or Email or CSV file**
 
 ```bash
+# Delete all users on an email domain
 snyk-sso-membership delete-users <groupID> --domain=source.com
-```
 
-#### **Delete Users by Email or CSV**
-
-```bash
 # Delete a single user by email
 snyk-sso-membership delete-users <groupID> --email=user1@source.com
 
@@ -139,13 +159,10 @@ snyk-sso-membership delete-users <groupID> --email=user1@source.com
 snyk-sso-membership delete-users <groupID> --csvFilePath="./users.csv"
 ```
 
-#### **`delete-users` Command Options**
+#### **`get-users` and `delete-users` Command Options**
 
-* `--matchByUserName` (Optional Flag): Use this flag to identify and delete users by their Snyk user profile
-   `username` property instead of their `email` property.
+* `--matchByUserName` (Optional Flag): Use this flag to identify users by their Snyk user profile `username` property instead of their `email` property.
 
 ## **Logging**
 
-For every execution, a log file named
-
-`snyk-sso-membership_run_<YYYYMMDDHHMMSS>.log` is created in the directory where the tool is run.
+For every execution, a log file named `snyk-sso-membership_run_<YYYYMMDDHHMMSS>.log` is created in the directory where the tool is run.

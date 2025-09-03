@@ -80,20 +80,38 @@ func (sso *Client) getSSOUsers(groupID, ssoConnectionID string) (*Users, error) 
 // It checks if the User's email or username (depending on the matchByUserName flag) ends with the provided domain.
 func isUserProfileOfDomain(user *User, domain string, matchByUserName bool) bool {
 	isMatched := false
-	var userProfile *string
+	var userProfileID *string
 
 	if user.Attributes != nil {
 		if matchByUserName && user.Attributes.UserName != nil {
-			userProfile = user.Attributes.UserName
+			userProfileID = user.Attributes.UserName
 		} else if user.Attributes.Email != nil {
-			userProfile = user.Attributes.Email
+			userProfileID = user.Attributes.Email
 		}
 	}
 
-	if domain != "" && userProfile != nil && strings.HasSuffix(*userProfile, "@"+domain) {
+	if domain != "" && userProfileID != nil && strings.HasSuffix(*userProfileID, "@"+domain) {
 		isMatched = true
 	}
 
+	return isMatched
+}
+
+func isUserProfileMatchingIdentifier(user *User, identifier string, matchByUserName bool) bool {
+	isMatched := false
+	var userProfileID *string
+
+	if user.Attributes != nil {
+		if matchByUserName && user.Attributes.UserName != nil {
+			userProfileID = user.Attributes.UserName
+		} else if user.Attributes.Email != nil {
+			userProfileID = user.Attributes.Email
+		}
+	}
+
+	if identifier != "" && userProfileID != nil && *userProfileID == identifier {
+		isMatched = true
+	}
 	return isMatched
 }
 
@@ -165,5 +183,26 @@ func (sso *Client) FilterUsersByDomain(domain string, users Users, matchByUserNa
 	}
 
 	logger.Info().Msg(fmt.Sprintf("Filtered %d users matching domain: %s", len(filteredUsers), domain))
+	return filteredUsers, nil
+}
+
+func (sso *Client) FilterUsersByProfileIDs(identifiers []string, users Users, matchByUserName bool, logger *zerolog.Logger) ([]User, error) {
+	var filteredUsers []User
+
+	for i := range identifiers {
+		for _, user := range *users.Data {
+			if isUserProfileMatchingIdentifier(&user, identifiers[i], matchByUserName) {
+				filteredUsers = append(filteredUsers, user)
+				break
+			}
+		}
+	}
+
+	if len(filteredUsers) == 0 {
+		logger.Warn().Msg(fmt.Sprintf("No users found matching identifier: %v", identifiers))
+		return nil, fmt.Errorf("no users found matching identifiers: %v", identifiers)
+	}
+
+	logger.Info().Msg(fmt.Sprintf("Filtered %d users matching identifiers: %v", len(filteredUsers), identifiers))
 	return filteredUsers, nil
 }
