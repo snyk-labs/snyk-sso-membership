@@ -1,14 +1,11 @@
 package commands
 
 import (
-	"fmt"
 	"io"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"github.com/snyk-labs/snyk-sso-membership/pkg/client"
 	"github.com/snyk-labs/snyk-sso-membership/pkg/config"
@@ -23,41 +20,7 @@ func GetUsers(logger *zerolog.Logger) *cobra.Command {
 		DisableFlagParsing:    false,
 		DisableFlagsInUseLine: false,
 		Args: func(_ *cobra.Command, args []string) error {
-			if len(args) != 1 {
-				logger.Error().Msgf("expected groupID argument, got %d", len(args))
-				return fmt.Errorf("expected groupID argument, got %d", len(args))
-			}
-
-			groupID := args[0]
-			// Validate groupID and the flags
-			_, err := uuid.Parse(groupID)
-			if err != nil {
-				logger.Error().Msgf("groupID must be a valid UUID: %s", args[0])
-				return fmt.Errorf("groupID must be a valid UUID: %s", args[0])
-			}
-
-			var domainRegexp = regexp.MustCompile(`^(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$`)
-			if domain != "" && !domainRegexp.MatchString(domain) {
-				logger.Error().Msgf("domain must be a valid domain name: %s", domain)
-				return fmt.Errorf("domain must be a valid domain name: %s", domain)
-			}
-
-			if email != "" {
-				validEmail := isValidEmailRFC5322(email)
-				if !validEmail {
-					logger.Error().Msgf("email must be a valid email address: %s", email)
-					return fmt.Errorf("email must be a valid email address: %s", email)
-				}
-			}
-
-			if csvFilePath != "" {
-				if _, err := os.Stat(csvFilePath); os.IsNotExist(err) {
-					logger.Error().Msgf("csvFile does not exist: %s", csvFilePath)
-					return fmt.Errorf("csvFile does not exist: %s", csvFilePath)
-				}
-			}
-
-			return nil
+			return validateGetDeleteArgs(logger, args)
 		},
 		RunE: func(_ *cobra.Command, args []string) error {
 			c := client.New(config.New())

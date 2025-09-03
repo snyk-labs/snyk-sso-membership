@@ -6,7 +6,9 @@ import (
 	"io"
 	"net/mail"
 	"os"
+	"regexp"
 
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"github.com/snyk-labs/snyk-sso-membership/pkg/sso"
 )
@@ -87,4 +89,45 @@ func readCsvFile(filePath string, logger *zerolog.Logger) ([]string, error) {
 func isValidEmailRFC5322(email string) bool {
 	_, err := mail.ParseAddress(email)
 	return err == nil
+}
+
+func validateGetDeleteArgs(logger *zerolog.Logger, args []string) error {
+	if len(args) != 1 {
+		msg := fmt.Sprintf("expected groupID argument, got %d", len(args))
+		logger.Error().Msg(msg)
+		return fmt.Errorf("%s", msg)
+	}
+
+	groupID := args[0]
+	// Validate groupID and the flags
+	if _, err := uuid.Parse(groupID); err != nil {
+		msg := fmt.Sprintf("groupID must be a valid UUID: %s", args[0])
+		logger.Error().Msg(msg)
+		return fmt.Errorf("%s", msg)
+	}
+
+	var domainRegexp = regexp.MustCompile(`^(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$`)
+	if domain != "" && !domainRegexp.MatchString(domain) {
+		msg := fmt.Sprintf("domain must be a valid domain name: %s", domain)
+		logger.Error().Msg(msg)
+		return fmt.Errorf("%s", msg)
+	}
+
+	if email != "" {
+		if !isValidEmailRFC5322(email) {
+			msg := fmt.Sprintf("email must be a valid email address: %s", email)
+			logger.Error().Msg(msg)
+			return fmt.Errorf("%s", msg)
+		}
+	}
+
+	if csvFilePath != "" {
+		if _, err := os.Stat(csvFilePath); os.IsNotExist(err) {
+			msg := fmt.Sprintf("csvFile does not exist: %s", csvFilePath)
+			logger.Error().Msg(msg)
+			return fmt.Errorf("%s", msg)
+		}
+	}
+
+	return nil
 }
