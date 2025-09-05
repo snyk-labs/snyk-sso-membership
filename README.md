@@ -1,23 +1,161 @@
 ![Snyk logo](https://snyk.io/style/asset/logo/snyk-print.svg)
-# **Snyk SSO Membership Tool**
 
-This is a command-line (CLI) tool built in Go to help Snyk Group Administrators manage user memberships during a Single Sign On (SSO) domain migration.
+# Snyk SSO Membership Tool
 
-This tool helps solve the challenge of migrating Group and Organization memberships of Snyk users who are represented across two different email domains on a SSO connection. Example: 
+This command-line tool helps Snyk Group Administrators manage user memberships during a Single Sign-On (SSO) domain migration. It simplifies migrating Group and Organization memberships for users represented across two different email domains on an SSO connection.
+
+For example, migrating a user from:
 
 - `user@source.com` to `user@destination.com` (by `email` property)
 - `user@source.com` to `user` (by `username` property)
 
-## **Key Features**
+## Table of Contents
 
-* **Synchronize Memberships**: Copy a user's Snyk Group and Organization roles from a source domain account to a destination domain account.
-* **Delete Users**: Bulk-delete Snyk SSO users from a specific domain, useful for decommissioning a deprecated domain after migration.
-* **Flexible User Matching**: Provides advanced options to match Snyk users based on email, username property values, or the local-part of an email address, accommodating complex identity provider (IdP) setups.
+- [Key Features](#key-features)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+  - [Build](#build)
+- [Usage](#usage)
+  - [`sync`](#sync-synchronizing-user-memberships)
+  - [`get-users`](#get-users-getting-sso-users)
+  - [`delete-users`](#delete-users-deleting-sso-users)
+- [How Snyk User Profiles are Matched](#how-snyk-user-profiles-are-matched)
+- [⚠️ Important Behavior](#️-important-behavior)
+- [Logging](#logging)
+- [License](#license)
 
-## Snyk User Profiles
+## Key Features
 
-A Snyk User is identified on the SSO connection through a Snyk profile e.g.
+*   **Synchronize Memberships**: Copy a user's Snyk Group and Organization roles from a source account to a destination account.
+*   **Delete Users**: Bulk-delete Snyk SSO users from a specific domain.
+*   **Flexible User Matching**: Match Snyk users by email, username, or the local-part of an email address to accommodate complex identity provider (IdP) setups.
 
+## Getting Started
+
+### Prerequisites
+
+You will need a Snyk Service Account API token with the **Group Admin** role. Export it as an environment variable:
+
+```bash
+export SNYK_TOKEN=<your_snyk_api_token>
+```
+
+### Installation
+
+Download the appropriate binary for your system from the latest [GitHub release](https://github.com/snyk/snyk-sso-membership/releases).
+
+### Build
+
+To build the `snyk-sso-membership` executable from source:
+
+```bash
+make build
+```
+
+## Usage
+
+The tool provides three main commands: `sync`, `get-users`, and `delete-users`.
+
+### `sync`: Synchronizing User Memberships
+
+This command synchronizes Group and Organization memberships from users on a source domain to users on a destination domain.
+
+> [!WARNING]
+> The `sync` command performs a **full synchronization**. The destination user's list of Organization memberships will become an exact mirror of the source user's. Any memberships the destination user had that the source user did not will be **deleted**. It is highly recommended to perform a `dry run` first.
+
+#### Sync All Users in a Group
+
+This command finds pairs of users across two domains who share the same local-part (username) in their email address.
+
+```bash
+snyk-sso-membership sync <groupID> --domain=source.com --ssoDomain=destination.com
+```
+
+#### Sync a Selective List of Users
+
+You can provide a CSV file containing a list of source user emails to sync.
+
+**Example `users.csv`:**
+```csv
+user1@source.com
+user2@source.com
+```
+
+**Command:**
+```bash
+snyk-sso-membership sync <groupID> --domain=source.com --ssoDomain=destination.com --csvFilePath="./users.csv"
+```
+
+#### `sync` Command Options
+
+| Option | Description |
+| --- | --- |
+| `--domain` | The source domain to match users from. |
+| `--ssoDomain` | The destination domain to sync memberships to. |
+| `--csvFilePath` | Path to a CSV file containing a list of user emails to sync. |
+| `--dry-run` | Perform a dry run without making any actual changes. |
+| `--matchByUserName` | Match users by their `username` property instead of `email`. |
+| `--matchToLocalPart`| Match the local-part of the source user's email to the destination user's `username`. Mutually exclusive with `--ssoDomain`. |
+
+#### `sync` Flow Diagram
+
+![sync-flow-diagram](docs/images/sync-flow-diagram.svg)
+
+### `get-users`: Getting SSO Users
+
+This command retrieves SSO users from the SSO connection tied to the Snyk Group. You can redirect the output to a CSV file.
+
+#### Get All Users
+
+```bash
+snyk-sso-membership get-users <groupID> > myusers.csv
+```
+
+#### Get Users by Domain, Email, or CSV
+
+```bash
+# Get all users by email domain
+snyk-sso-membership get-users <groupID> --domain=source.com > myusers.csv
+
+# Get a single user by email
+snyk-sso-membership get-users <groupID> --email=user1@source.com > myusers.csv
+
+# Get a list of users from a CSV file
+snyk-sso-membership get-users <groupID> --csvFilePath="./users.csv" > myusers.csv
+```
+
+### `delete-users`: Deleting SSO Users
+
+This command deletes SSO users by email address or unique user ID.
+
+> [!NOTE]
+> The `delete-users` command triggers standard Snyk email notifications to affected users (e.g., "Your Snyk account was deleted"). This is a platform-level behavior and cannot be configured.
+
+#### Delete Users by Domain, Email, or CSV
+
+```bash
+# Delete all users by email domain
+snyk-sso-membership delete-users <groupID> --domain=source.com
+
+# Delete a single user by email
+snyk-sso-membership delete-users <groupID> --email=user1@source.com
+
+# Delete a list of users from a CSV file
+snyk-sso-membership delete-users <groupID> --csvFilePath="./users.csv"
+```
+
+### `get-users` and `delete-users` Command Options
+
+| Option | Description |
+| --- | --- |
+| `--matchByUserName` | Use this flag to identify users by their `username` property instead of `email`. |
+
+## How Snyk User Profiles are Matched
+
+A Snyk User is identified on the SSO connection through their profile attributes. The tool uses these attributes to find matching source and destination users.
+
+**Example User Profiles:**
 ```json
 {
     "type": "user",
@@ -41,128 +179,18 @@ A Snyk User is identified on the SSO connection through a Snyk profile e.g.
 }
 ```
 
-## **⚠️ Important Behavior**
+## ⚠️ Important Behavior
 
-Please read these points carefully before using the tool.
+> [!WARNING]
+> Please read these points carefully before using the tool.
+>
+> *   **Destructive Sync:** The `sync` command performs a **full synchronization**. The destination user's list of Organization memberships will become an exact mirror of the source user's list. Any memberships the destination user had that the source user did not will be **deleted**.
+> *   **Email Notifications:** The `delete-users` command triggers standard Snyk email notifications to the affected users (e.g., "Your Snyk account was deleted"). This is a platform-level behavior and cannot be configured.
 
-* **Destructive Sync:** The `sync` command performs a **full synchronization**. The destination-domain user's list of Organization memberships will become an exact mirror of the source user's list. Any memberships the destination-domain user had that the source-domain user did not will be **deleted**.
-* **Email Notifications:** The `delete-users` command will trigger standard Snyk email notifications to the affected users. For example, a deleted user will immediately receive an email stating "Your Snyk account was deleted". This email notification is handled by Snyk platform and is not configurable.
-
-## **Getting Started**
-
-### **Prerequisites**
-
-You will need a Snyk Service Account API token with:
-
-- **Group Admin** role
-- Exported as an environment variable named `SNYK_TOKEN`
-
-```bash
-export SNYK_TOKEN=<your_snyk_api_token>
-```
-
-### **Build**
-
-To build the
-
-`snyk-sso-membership` executable:
-
-```bash
-make build
-```
-
-## **Usage**
-
-The tool has two main commands: `sync` and `delete-users`.
-
-### **`sync`: Synchronizing User Memberships**
-
-This command synchronizes Group and Organization memberships from users on a source domain to users on a destination domain.
-
-#### **Sync All Users in a Group**
-
-This looks up all SSO users in a Group and finds pairs of users across the two domains who share the same local-part (username) in their email address.
-
-```bash
-snyk-sso-membership sync <groupID> --domain=source.com --ssoDomain=destination.com
-```
-
-#### **Sync a Selective List of Users**
-
-You can provide a CSV file containing a list of source-domain user emails to sync.
-
-Example
-
-`users.csv` file:
-
-Code snippet
-
-```
-user1@source.com,
-user2@source.com,
-```
-
-Command:
-
-```bash
-snyk-sso-membership sync <groupID> --domain=source.com --ssoDomain=destination.com --csvFilePath="./users.csv"
-```
-
-#### **`sync` Command Options**
-
-* `--matchByUserName` (Optional Flag): By default, the tool matches the source-domain user by their Snyk user `email` property value. Use this flag if the user's identifying email (e.g. `user@source.com`) is in their `username` profile property instead.
-* `--matchToLocalPart` (Optional Flag): Use this for advanced cases where a destination-domain user is identified by a non-email address username (e.g. SCIM provisioned users based on IdP `nameIdAttributes`). This option will match _local-part_ (the part before the `@`) of the source-domain user's email address against the `username` property value of a destination-domain user on the SSO connection. By default without this flag, the identification of a destination-domain user is applied by matching a "_local-part@ssoDomain_" value against the `email` property value. This flag is therefore mutually exclusive to the `ssoDomain` flag.
-
-#### **`sync` Flow Diagram**
-
-![sync-flow-diagram](docs/images/sync-flow-diagram.svg)
-
-These 2 command options provide flexibility on identifying and matching a source-domain to its similar destination-domain Snyk user. If these CLI flags are not provided, they are defaulted to false.
-
-### **`get-users`: Getting SSO Users**
-
-This command gets SSO users on the SSO connection bound to the Snyk Group. See following commands to redirect output to a comma-separated (CSV) file.
-
-#### **Get All Users**
-
-```bash
-snyk-sso-membership get-users <groupID> > myusers.csv
-```
-
-#### **Get Users by Domain or Email or CSV file**
-
-```bash
-# Get all users on an email domain
-snyk-sso-membership get-users <groupID> --domain=source.com > myusers.csv
-
-# Get a single user by email-address corresponding to their email property
-snyk-sso-membership get-users <groupID> --email=user1@source.com > myusers.csv
-
-# Get a list of users from a CSV file
-snyk-sso-membership get-users <groupID> --csvFilePath="./users.csv" > myusers.csv
-```
-
-### **`delete-users`: Deleting SSO Users**
-
-This command deletes SSO users by email addresses or the unique identifier of a User.
-
-#### **Delete Users by Domain or Email or CSV file**
-
-```bash
-# Delete all users on an email domain
-snyk-sso-membership delete-users <groupID> --domain=source.com
-
-# Delete a single user by email
-snyk-sso-membership delete-users <groupID> --email=user1@source.com
-
-# Delete a list of users from a CSV file
-snyk-sso-membership delete-users <groupID> --csvFilePath="./users.csv"
-```
-
-#### **`get-users` and `delete-users` Command Options**
-
-* `--matchByUserName` (Optional Flag): Use this flag to identify users by their Snyk user profile `username` property instead of their `email` property.
-
-## **Logging**
+## Logging
 
 For every execution, a log file named `snyk-sso-membership_run_<YYYYMMDDHHMMSS>.log` is created in the directory where the tool is run.
+
+## License
+
+This project is licensed under the [Apache 2.0 License](LICENSE).
