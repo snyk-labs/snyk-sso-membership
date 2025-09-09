@@ -36,11 +36,11 @@ func matchToUserProperty(u sso.User, localPart, provisionedEmail string, matchTo
 func (m *Client) mapProvisionedUsersAttributes(groupID, domain, ssoDomain string, users sso.Users, matchByUserName, matchToLocalPart bool, logger *zerolog.Logger) (int32, *map[string]provisionedUserAttributes) {
 	provisionedUserAttributesMap := make(map[string]provisionedUserAttributes)
 
-	for _, u := range *users.Data {
+	for _, u := range users.Data {
 		if (!matchByUserName && strings.HasSuffix(*u.Attributes.Email, domain)) || (matchByUserName && strings.HasSuffix(*u.Attributes.UserName, domain)) {
 			userID := *u.ID
 			groupMemberships, err := m.getUserGroupMemberships(groupID, userID)
-			if err != nil || groupMemberships == nil || len(*groupMemberships.Data) == 0 {
+			if err != nil || groupMemberships == nil || len(groupMemberships.Data) == 0 {
 				logger.Info().Msg(fmt.Sprintf("No existent Group membership found for user: %s", *u.Attributes.Email))
 				logger.Warn().Msg(err.Error())
 			}
@@ -59,7 +59,7 @@ func (m *Client) mapProvisionedUsersAttributes(groupID, domain, ssoDomain string
 			provisionedUserAttributesMap[prevKeyIdentifier] = provisionedUserAttributes{
 				id:                u.ID,
 				userName:          u.Attributes.UserName,
-				groupMembershipID: (*groupMemberships.Data)[0].ID,
+				groupMembershipID: groupMemberships.Data[0].ID,
 				groupMemberships:  groupMemberships,
 				orgMemberships:    orgMemberships,
 			}
@@ -73,7 +73,7 @@ func (m *Client) mapProvisionedUsersAttributes(groupID, domain, ssoDomain string
 		localPart := emailParts[0]
 		provisionedEmail := localPart + "@" + ssoDomain
 
-		for _, u := range *users.Data {
+		for _, u := range users.Data {
 			if matchToUserProperty(u, localPart, provisionedEmail, matchToLocalPart) {
 				if matchToLocalPart && u.Attributes.UserName != nil {
 					logger.Info().Msg(fmt.Sprintf("Matched %s -> User: username: %s", prevKeyID, *u.Attributes.UserName))
@@ -83,8 +83,8 @@ func (m *Client) mapProvisionedUsersAttributes(groupID, domain, ssoDomain string
 
 				// get the GroupMembership of provisioned User to update
 				pGroupMemberships, err := m.getUserGroupMemberships(groupID, *u.ID)
-				if err == nil && pGroupMemberships != nil && len(*pGroupMemberships.Data) > 0 {
-					uAttributes.provisionedGroupMembershipID = (*pGroupMemberships.Data)[0].ID
+				if err == nil && pGroupMemberships != nil && len(pGroupMemberships.Data) > 0 {
+					uAttributes.provisionedGroupMembershipID = pGroupMemberships.Data[0].ID
 				} else if err != nil {
 					logger.Info().Msg(fmt.Sprintf("No existent Group membership found for User: username: %s", *u.Attributes.UserName))
 					logger.Warn().Msg(err.Error())
@@ -105,8 +105,8 @@ func (m *Client) mapProvisionedUsersAttributes(groupID, domain, ssoDomain string
 // A provisioned User is provisioned with a default Group membership based on the Login strategy at SSO settings
 // this function will update this provisioned membership to be similar to the pre-migration User
 func (m *Client) updateUserGroupMembership(uAttributes *provisionedUserAttributes, logger *zerolog.Logger) {
-	if uAttributes.groupMemberships.Data != nil && uAttributes.provisionedGroupMembershipID != nil {
-		gm := (*uAttributes.groupMemberships.Data)[0]
+	if uAttributes.groupMemberships != nil && len(uAttributes.groupMemberships.Data) > 0 && uAttributes.provisionedGroupMembershipID != nil {
+		gm := uAttributes.groupMemberships.Data[0]
 		groupID := gm.Relationship.Group.Data.ID
 		groupName := *gm.Relationship.Group.Data.Attributes.Name
 
@@ -135,7 +135,7 @@ func (m *Client) deleteUserOrgMembership(groupID, userID, userIdentifier string,
 	}
 
 	// delete these memberships
-	for _, om := range *userOrgMemberships.Data {
+	for _, om := range userOrgMemberships.Data {
 		orgID := om.Relationship.Org.Data.ID
 		orgName := *om.Relationship.Org.Data.Attributes.Name
 		err := m.deleteOrgMembership(*orgID, *om.ID)
@@ -155,7 +155,7 @@ func (m *Client) syncUserOrgMemberships(groupID string, uAttributes *provisioned
 		logger.Warn().Msg(fmt.Sprintf("Failed to delete OrgMembership of User: username: %s", *uAttributes.provisionedUserName))
 	}
 
-	for _, om := range *uAttributes.orgMemberships.Data {
+	for _, om := range uAttributes.orgMemberships.Data {
 		userType := sso.TypeUser
 		pUserAttributes := &TypeIdentifierAttributes{
 			ID:   uAttributes.provisionedID,
@@ -207,7 +207,7 @@ func (m *Client) syncUserGroupMembership(uAttributes *provisionedUserAttributes,
 		}
 
 		// extract the prev User groupmembership
-		gm := (*uAttributes.groupMemberships.Data)[0]
+		gm := uAttributes.groupMemberships.Data[0]
 		groupMbrRelationship := MemberRelationship{
 			Group: gm.Relationship.Group,
 			Role:  gm.Relationship.Role,

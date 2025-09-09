@@ -63,7 +63,7 @@ func TestRunGetUsers(t *testing.T) {
 			args:   []string{"group-id"},
 			domain: "example.com",
 			setupMock: func(m *mockSSOGetter) {
-				users := &sso.Users{Data: &[]sso.User{}}
+				users := &sso.Users{Data: []sso.User{}}
 				filteredUsers := []sso.User{
 					{
 						Attributes: &struct {
@@ -89,7 +89,7 @@ func TestRunGetUsers(t *testing.T) {
 			args:  []string{"group-id"},
 			email: "test@example.com",
 			setupMock: func(m *mockSSOGetter) {
-				users := &sso.Users{Data: &[]sso.User{}}
+				users := &sso.Users{Data: []sso.User{}}
 				filteredUsers := []sso.User{
 					{
 						Attributes: &struct {
@@ -115,7 +115,7 @@ func TestRunGetUsers(t *testing.T) {
 			args:   []string{"group-id"},
 			domain: "example.com",
 			setupMock: func(m *mockSSOGetter) {
-				users := &sso.Users{Data: &[]sso.User{}}
+				users := &sso.Users{Data: []sso.User{}}
 				m.On("GetUsers", "group-id", mock.Anything).Return(users, nil)
 				m.On("FilterUsersByDomain", "example.com", *users, false, mock.Anything).Return([]sso.User{}, errors.New("filter error"))
 			},
@@ -127,7 +127,7 @@ func TestRunGetUsers(t *testing.T) {
 			args:        []string{"group-id"},
 			csvFilePath: tmpFile.Name(),
 			setupMock: func(m *mockSSOGetter) {
-				users := &sso.Users{Data: &[]sso.User{}}
+				users := &sso.Users{Data: []sso.User{}}
 				filteredUsers := []sso.User{
 					{
 						Attributes: &struct {

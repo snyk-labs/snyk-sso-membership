@@ -120,7 +120,7 @@ func TestFilterUsers(t *testing.T) {
 	// }
 
 	ssoUsers := sso.Users{
-		Data: &[]sso.User{
+		Data: []sso.User{
 			makeUser("id1", "user1@example.com", "user1@example2.com"),
 			makeUser("id2", "user2@example.com", "user2@example2.com"),
 			makeUser("id3", "user1@sso.example.com", "user1-sso"), // Corresponds to user1@example.com if ssoDomain is "sso.example.com"
@@ -208,7 +208,7 @@ func TestFilterUsers(t *testing.T) {
 
 	t.Run("empty sso user list", func(t *testing.T) {
 		ssoDomain = "sso.example.com"
-		emptySsoUsers := sso.Users{Data: &[]sso.User{}}
+		emptySsoUsers := sso.Users{Data: []sso.User{}}
 		emailsToFilter := []string{"user1@example.com"}
 		filtered := filterUsers(emailsToFilter, emptySsoUsers, false, false, false, &logger)
 		assert.Len(t, filtered, 0)
@@ -216,7 +216,7 @@ func TestFilterUsers(t *testing.T) {
 
 	t.Run("user with nil attributes or email", func(t *testing.T) {
 		ssoDomain = "sso.example.com"
-		usersWithNil := sso.Users{Data: &[]sso.User{{ID: stringPtr("nil-attr")}, makeUser("id1", "user1@example.com", "user1@example2.com")}}
+		usersWithNil := sso.Users{Data: []sso.User{{ID: stringPtr("nil-attr")}, makeUser("id1", "user1@example.com", "user1@example2.com")}}
 		emailsToFilter := []string{"user1@example.com"}
 		filtered := filterUsers(emailsToFilter, usersWithNil, false, false, false, &logger)
 		assert.Len(t, filtered, 1)

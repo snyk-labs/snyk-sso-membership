@@ -41,14 +41,14 @@ func runGetUsers(args []string, logger *zerolog.Logger, sc userFetcher) error {
 	}
 
 	// return matching users
-	if len(*ssoUsers.Data) > 0 {
+	if len(ssoUsers.Data) > 0 {
 		header := []string{"username", "email", "name", "active"}
 		if err := writeQuotedRecord(os.Stdout, header); err != nil {
 			logger.Error().Err(err).Msg("failed to write csv header")
 			return err
 		}
 
-		for _, user := range *ssoUsers.Data {
+		for _, user := range ssoUsers.Data {
 			var username, email, name, active string
 			if user.Attributes != nil {
 				if user.Attributes.UserName != nil {
