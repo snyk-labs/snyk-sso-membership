@@ -62,7 +62,7 @@ The tool provides three main commands: `sync`, `get-users`, and `delete-users`.
 This command synchronizes Group and Organization memberships from users on a source domain to users on a destination domain.
 
 > [!WARNING]
-> The `sync` command performs a **full synchronization**. The destination user's list of Organization memberships will become an exact mirror of the source user's. Any memberships the destination user had that the source user did not will be **deleted**. It is highly recommended to perform a `dry run` first.
+> The `sync` command performs a **full synchronization**. The destination user's list of Organization memberships will become an exact mirror of the source user's. Any memberships the destination user had that the source user did not will be **deleted**.
 
 #### Sync All Users in a Group
 
@@ -94,7 +94,6 @@ snyk-sso-membership sync <groupID> --domain=source.com --ssoDomain=destination.c
 | `--domain` | The source domain to match users from. |
 | `--ssoDomain` | The destination domain to sync memberships to. |
 | `--csvFilePath` | Path to a CSV file containing a list of user emails to sync. |
-| `--dry-run` | Perform a dry run without making any actual changes. |
 | `--matchByUserName` | Match users by their `username` property instead of `email`. |
 | `--matchToLocalPart`| Match the local-part of the source user's email to the destination user's `username`. Mutually exclusive with `--ssoDomain`. |
 

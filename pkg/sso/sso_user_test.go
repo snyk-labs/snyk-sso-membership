@@ -21,13 +21,14 @@ func boolPtr(b bool) *bool {
 
 func TestGetSSOUsers(t *testing.T) {
 	mockClient := new(mocks.MockSnykClient)
-	sso := New(mockClient)
+	ssoClient := New(mockClient)
+	logger := zerolog.Nop()
 
 	groupID := "test-group-id"
 	connectionID := "test-connection-id"
-	expectedPath := fmt.Sprintf("/rest/groups/%s/sso_connections/%s/users", groupID, connectionID)
+	expectedPath := fmt.Sprintf("/rest/groups/%s/sso_connections/%s/users?limit=100", groupID, connectionID)
 	expectedResponse := Users{
-		Data: &[]User{
+		Data: []User{
 			{
 				ID:   stringPtr("test-user-id"),
 				Type: stringPtr("user"),
@@ -45,14 +46,123 @@ func TestGetSSOUsers(t *testing.T) {
 			},
 		},
 	}
-	expectedResponseBody, _ := json.Marshal(expectedResponse)
+	// The API returns a UsersResponse, not a Users struct
+	apiResponse := UsersResponse{
+		Data: expectedResponse.Data,
+		Links: &struct {
+			Prev *string `json:"prev"`
+			Next *string `json:"next"`
+		}{
+			Next: nil,
+		},
+	}
+	expectedResponseBody, _ := json.Marshal(apiResponse)
 
 	mockClient.On("Get", expectedPath).Return(expectedResponseBody, nil)
 
-	users, err := sso.getSSOUsers(groupID, connectionID)
+	users, err := ssoClient.getSSOUsers(groupID, connectionID, &logger)
 	assert.NoError(t, err)
 	assert.NotNil(t, users)
-	assert.Equal(t, *expectedResponse.Data, *users.Data)
+	assert.Equal(t, expectedResponse.Data, users.Data)
+
+	mockClient.AssertExpectations(t)
+}
+
+func TestGetSSOUsers_Pagination(t *testing.T) {
+	mockClient := new(mocks.MockSnykClient)
+	ssoClient := New(mockClient)
+	logger := zerolog.Nop()
+
+	groupID := "test-group-id"
+	connectionID := "test-connection-id"
+
+	// Page 1
+	path1 := fmt.Sprintf("/rest/groups/%s/sso_connections/%s/users?limit=100", groupID, connectionID)
+	resp1 := UsersResponse{
+		Data: []User{
+			{ID: stringPtr("user-1")},
+		},
+		Links: &struct {
+			Prev *string `json:"prev"`
+			Next *string `json:"next"`
+		}{
+			Next: stringPtr(fmt.Sprintf("/groups/%s/sso_connections/%s/users?limit=100&starting_after=p1", groupID, connectionID)),
+		},
+	}
+	body1, _ := json.Marshal(resp1)
+
+	// Page 2
+	path2 := "/rest" + *resp1.Links.Next
+	resp2 := UsersResponse{
+		Data: []User{
+			{ID: stringPtr("user-2")},
+		},
+		Links: &struct {
+			Prev *string `json:"prev"`
+			Next *string `json:"next"`
+		}{
+			Next: nil, // No more pages
+		},
+	}
+	body2, _ := json.Marshal(resp2)
+
+	mockClient.On("Get", path1).Return(body1, nil).Once()
+	mockClient.On("Get", path2).Return(body2, nil).Once()
+
+	users, err := ssoClient.getSSOUsers(groupID, connectionID, &logger)
+	assert.NoError(t, err)
+	assert.NotNil(t, users)
+	assert.Len(t, users.Data, 2)
+	assert.Equal(t, "user-1", *users.Data[0].ID)
+	assert.Equal(t, "user-2", *users.Data[1].ID)
+
+	mockClient.AssertExpectations(t)
+}
+
+func TestGetSSOUsers_Pagination_FirstPageNull(t *testing.T) {
+	mockClient := new(mocks.MockSnykClient)
+	ssoClient := New(mockClient)
+	logger := zerolog.Nop()
+
+	groupID := "test-group-id"
+	connectionID := "test-connection-id"
+
+	// Page 1 (data is null)
+	path1 := fmt.Sprintf("/rest/groups/%s/sso_connections/%s/users?limit=100", groupID, connectionID)
+	resp1 := UsersResponse{
+		Data: nil, // This is the key part of the test
+		Links: &struct {
+			Prev *string `json:"prev"`
+			Next *string `json:"next"`
+		}{
+			Next: stringPtr(fmt.Sprintf("/groups/%s/sso_connections/%s/users?limit=100&starting_after=p1", groupID, connectionID)),
+		},
+	}
+	body1, _ := json.Marshal(resp1)
+
+	// Page 2
+	path2 := "/rest" + *resp1.Links.Next
+	resp2 := UsersResponse{
+		Data: []User{
+			{ID: stringPtr("user-2")},
+		},
+		Links: &struct {
+			Prev *string `json:"prev"`
+			Next *string `json:"next"`
+		}{
+			Next: nil, // No more pages
+		},
+	}
+	body2, _ := json.Marshal(resp2)
+
+	mockClient.On("Get", path1).Return(body1, nil).Once()
+	mockClient.On("Get", path2).Return(body2, nil).Once()
+
+	users, err := ssoClient.getSSOUsers(groupID, connectionID, &logger)
+	assert.NoError(t, err)
+	assert.NotNil(t, users)
+	assert.Len(t, users.Data, 1)
+	assert.Equal(t, "user-2", *users.Data[0].ID)
 
 	mockClient.AssertExpectations(t)
 }
@@ -63,11 +173,11 @@ func TestGetSSOUsers_Error(t *testing.T) {
 
 	groupID := "test-group-id"
 	connectionID := "test-connection-id"
-	expectedPath := fmt.Sprintf("/rest/groups/%s/sso_connections/%s/users", groupID, connectionID)
+	expectedPath := fmt.Sprintf("/rest/groups/%s/sso_connections/%s/users?limit=100", groupID, connectionID)
 
 	mockClient.On("Get", expectedPath).Return([]byte{}, errors.New("get error"))
 
-	users, err := sso.getSSOUsers(groupID, connectionID)
+	users, err := sso.getSSOUsers(groupID, connectionID, &zerolog.Logger{})
 	assert.Error(t, err)
 	assert.EqualError(t, err, "get error")
 	assert.Nil(t, users)
@@ -81,11 +191,11 @@ func TestGetSSOUsers_UnmarshalError(t *testing.T) {
 
 	groupID := "test-group-id"
 	connectionID := "test-connection-id"
-	expectedPath := fmt.Sprintf("/rest/groups/%s/sso_connections/%s/users", groupID, connectionID)
+	expectedPath := fmt.Sprintf("/rest/groups/%s/sso_connections/%s/users?limit=100", groupID, connectionID)
 
 	mockClient.On("Get", expectedPath).Return([]byte("invalid json"), nil)
 
-	users, err := sso.getSSOUsers(groupID, connectionID)
+	users, err := sso.getSSOUsers(groupID, connectionID, &zerolog.Logger{})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid character")
 	assert.Nil(t, users)
@@ -164,7 +274,7 @@ func TestDeleteUsers_GetConnectionError(t *testing.T) {
 	sso := New(mockClient)
 	groupID := "test-group-id"
 	expectedUsersResponse := Users{
-		Data: &[]User{
+		Data: []User{
 			{
 				ID: stringPtr("user-id-1"),
 				Attributes: &struct {
@@ -216,7 +326,7 @@ func TestFilterUsersByDomain(t *testing.T) {
 	logger := zerolog.Nop()
 
 	users := Users{
-		Data: &[]User{
+		Data: []User{
 			{ID: stringPtr("1"), Attributes: &struct {
 				Name     *string `json:"name"`
 				Email    *string `json:"email"`
@@ -275,7 +385,7 @@ func TestFilterUsersByDomain(t *testing.T) {
 	})
 
 	t.Run("empty user list", func(t *testing.T) {
-		emptyUsers := Users{Data: &[]User{}}
+		emptyUsers := Users{Data: []User{}}
 		filtered, err := ssoClient.FilterUsersByDomain("example.com", emptyUsers, false, &logger)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "no users found matching domain: example.com")
@@ -284,7 +394,7 @@ func TestFilterUsersByDomain(t *testing.T) {
 
 	t.Run("user with nil attributes", func(t *testing.T) {
 		usersWithNilAttributes := Users{
-			Data: &[]User{
+			Data: []User{
 				{ID: stringPtr("1"), Attributes: nil},
 				{ID: stringPtr("2"), Attributes: &struct {
 					Name     *string `json:"name"`

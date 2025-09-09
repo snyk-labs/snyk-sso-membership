@@ -55,11 +55,19 @@ type Membership struct {
 }
 
 type UserGroupMemberships struct {
-	Data *[]Membership `json:"data"`
+	Data []Membership `json:"data"`
 }
 
+// UserMembershipResponse is a generic struct for paginated membership API responses.
+type UserMembershipResponse struct {
+	Data  []Membership `json:"data"`
+	Links *struct {
+		Prev *string `json:"prev"`
+		Next *string `json:"next"`
+	} `json:"links"`
+}
 type UserOrgMemberships struct {
-	Data *[]Membership `json:"data"`
+	Data []Membership `json:"data"`
 }
 
 type RequestBody struct {
@@ -103,34 +111,68 @@ const (
 	OrgMembershipType   = "org_membership"
 )
 
-func (m *Client) getUserGroupMemberships(groupID, userID string) (*UserGroupMemberships, error) {
-	requestPath := fmt.Sprintf("/rest/groups/%s/memberships?limit=100&user_id=%s", groupID, userID)
+// getPaginatedMemberships handles fetching all pages for a membership-style endpoint.
+func (m *Client) getPaginatedMemberships(requestPath string) ([]Membership, error) {
 	respBody, err := m.client.Get(requestPath)
 	if err != nil {
 		return nil, err
 	}
 
-	var groupMemberships UserGroupMemberships
-	encodingError := json.Unmarshal(respBody, &groupMemberships)
+	var resp UserMembershipResponse
+	encodingError := json.Unmarshal(respBody, &resp)
 	if encodingError != nil {
 		return nil, encodingError
 	}
-	return &groupMemberships, nil
+
+	allMemberships := resp.Data
+
+	for {
+		nextLink := ""
+		if resp.Links != nil && resp.Links.Next != nil {
+			nextLink = *resp.Links.Next
+		}
+
+		if nextLink == "" {
+			break
+		}
+
+		restNextLink := "/rest" + nextLink
+		nextRespBody, err := m.client.Get(restNextLink)
+		if err != nil {
+			return nil, err
+		}
+
+		var nextPageResp UserMembershipResponse
+		encodingError := json.Unmarshal(nextRespBody, &nextPageResp)
+		if encodingError != nil {
+			return nil, encodingError
+		}
+		resp = nextPageResp
+
+		if len(resp.Data) > 0 {
+			allMemberships = append(allMemberships, resp.Data...)
+		}
+	}
+
+	return allMemberships, nil
+}
+
+func (m *Client) getUserGroupMemberships(groupID, userID string) (*UserGroupMemberships, error) {
+	requestPath := fmt.Sprintf("/rest/groups/%s/memberships?limit=100&user_id=%s", groupID, userID)
+	allMemberships, err := m.getPaginatedMemberships(requestPath)
+	if err != nil {
+		return nil, err
+	}
+	return &UserGroupMemberships{Data: allMemberships}, nil
 }
 
 func (m *Client) getUserOrgMembershipsOfGroup(groupID, userID string) (*UserOrgMemberships, error) {
 	requestPath := fmt.Sprintf("/rest/groups/%s/org_memberships?limit=100&user_id=%s", groupID, userID)
-	respBody, err := m.client.Get(requestPath)
+	allMemberships, err := m.getPaginatedMemberships(requestPath)
 	if err != nil {
 		return nil, err
 	}
-
-	var orgMemberships UserOrgMemberships
-	encodingError := json.Unmarshal(respBody, &orgMemberships)
-	if encodingError != nil {
-		return nil, encodingError
-	}
-	return &orgMemberships, nil
+	return &UserOrgMemberships{Data: allMemberships}, nil
 }
 
 // func (m *Client) getUserOrgMembershipsOfOrg(orgID, userID string) (*UserOrgMemberships, error) {

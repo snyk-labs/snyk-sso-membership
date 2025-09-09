@@ -42,8 +42,8 @@ func runDeleteUsers(args []string, logger *zerolog.Logger, sc ssoDeleter) error 
 	}
 
 	// delete matching users
-	if len(*ssoUsers.Data) > 0 {
-		logger.Info().Msgf("Deleting %d users", len(*ssoUsers.Data))
+	if len(ssoUsers.Data) > 0 {
+		logger.Info().Msgf("Deleting %d users", len(ssoUsers.Data))
 		_ = sc.DeleteUsers(groupID, *ssoUsers, logger)
 	} else {
 		logger.Info().Msg("No users found matching the specified criteria, no Users to delete")

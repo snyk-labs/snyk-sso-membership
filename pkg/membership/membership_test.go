@@ -25,17 +25,70 @@ func TestGetUserGroupMemberships(t *testing.T) {
 
 	expectedPath := fmt.Sprintf("/rest/groups/%s/memberships?limit=100&user_id=%s", groupID, userID)
 	expectedMemberships := UserGroupMemberships{
-		Data: &[]Membership{
+		Data: []Membership{
 			{ID: stringPtr("membership-id-1"), Type: stringPtr("group_membership")},
 		},
 	}
-	expectedResponse, _ := json.Marshal(expectedMemberships)
+	apiResponse := UserMembershipResponse{
+		Data: expectedMemberships.Data,
+		Links: &struct {
+			Prev *string `json:"prev"`
+			Next *string `json:"next"`
+		}{
+			Next: nil,
+		},
+	}
+	expectedResponse, _ := json.Marshal(apiResponse)
 
 	mockClient.On("Get", expectedPath).Return(expectedResponse, nil)
 
 	memberships, err := m.getUserGroupMemberships(groupID, userID)
 	assert.NoError(t, err)
-	assert.Equal(t, expectedMemberships, *memberships)
+	assert.Equal(t, &expectedMemberships, memberships)
+
+	mockClient.AssertExpectations(t)
+}
+
+func TestGetUserGroupMemberships_Pagination(t *testing.T) {
+	mockClient := new(mocks.MockSnykClient)
+	m := New(mockClient)
+
+	groupID := "test-group-id"
+	userID := "test-user-id"
+
+	// Page 1
+	path1 := fmt.Sprintf("/rest/groups/%s/memberships?limit=100&user_id=%s", groupID, userID)
+	resp1 := UserMembershipResponse{
+		Data: []Membership{
+			{ID: stringPtr("membership-1")},
+		},
+		Links: &struct {
+			Prev *string `json:"prev"`
+			Next *string `json:"next"`
+		}{
+			Next: stringPtr(fmt.Sprintf("/groups/%s/memberships?user_id=%s&starting_after=p1", groupID, userID)),
+		},
+	}
+	body1, _ := json.Marshal(resp1)
+
+	// Page 2
+	path2 := "/rest" + *resp1.Links.Next
+	resp2 := UserMembershipResponse{
+		Data: []Membership{
+			{ID: stringPtr("membership-2")},
+		},
+	}
+	body2, _ := json.Marshal(resp2)
+
+	mockClient.On("Get", path1).Return(body1, nil).Once()
+	mockClient.On("Get", path2).Return(body2, nil).Once()
+
+	memberships, err := m.getUserGroupMemberships(groupID, userID)
+	assert.NoError(t, err)
+	assert.NotNil(t, memberships)
+	assert.Len(t, memberships.Data, 2)
+	assert.Equal(t, "membership-1", *memberships.Data[0].ID)
+	assert.Equal(t, "membership-2", *memberships.Data[1].ID)
 
 	mockClient.AssertExpectations(t)
 }
@@ -82,17 +135,66 @@ func TestGetUserOrgMembershipsOfGroup(t *testing.T) {
 
 	expectedPath := fmt.Sprintf("/rest/groups/%s/org_memberships?limit=100&user_id=%s", groupID, userID)
 	expectedMemberships := UserOrgMemberships{
-		Data: &[]Membership{
+		Data: []Membership{
 			{ID: stringPtr("membership-id-1"), Type: stringPtr("org_membership")},
 		},
 	}
-	expectedResponse, _ := json.Marshal(expectedMemberships)
+	apiResponse := UserMembershipResponse{
+		Data: expectedMemberships.Data,
+		Links: &struct {
+			Prev *string `json:"prev"`
+			Next *string `json:"next"`
+		}{
+			Next: nil,
+		},
+	}
+	expectedResponse, _ := json.Marshal(apiResponse)
 
 	mockClient.On("Get", expectedPath).Return(expectedResponse, nil)
 
 	memberships, err := m.getUserOrgMembershipsOfGroup(groupID, userID)
 	assert.NoError(t, err)
-	assert.Equal(t, expectedMemberships, *memberships)
+	assert.Equal(t, &expectedMemberships, memberships)
+
+	mockClient.AssertExpectations(t)
+}
+
+func TestGetUserOrgMembershipsOfGroup_Pagination(t *testing.T) {
+	mockClient := new(mocks.MockSnykClient)
+	m := New(mockClient)
+
+	groupID := "test-group-id"
+	userID := "test-user-id"
+
+	// Page 1
+	path1 := fmt.Sprintf("/rest/groups/%s/org_memberships?limit=100&user_id=%s", groupID, userID)
+	resp1 := UserMembershipResponse{
+		Data: []Membership{
+			{ID: stringPtr("membership-1")},
+		},
+		Links: &struct {
+			Prev *string `json:"prev"`
+			Next *string `json:"next"`
+		}{
+			Next: stringPtr(fmt.Sprintf("/groups/%s/org_memberships?user_id=%s&starting_after=p1", groupID, userID)),
+		},
+	}
+	body1, _ := json.Marshal(resp1)
+
+	// Page 2
+	path2 := "/rest" + *resp1.Links.Next
+	resp2 := UserMembershipResponse{Data: []Membership{{ID: stringPtr("membership-2")}}}
+	body2, _ := json.Marshal(resp2)
+
+	mockClient.On("Get", path1).Return(body1, nil).Once()
+	mockClient.On("Get", path2).Return(body2, nil).Once()
+
+	memberships, err := m.getUserOrgMembershipsOfGroup(groupID, userID)
+	assert.NoError(t, err)
+	assert.NotNil(t, memberships)
+	assert.Len(t, memberships.Data, 2)
+	assert.Equal(t, "membership-1", *memberships.Data[0].ID)
+	assert.Equal(t, "membership-2", *memberships.Data[1].ID)
 
 	mockClient.AssertExpectations(t)
 }

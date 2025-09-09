@@ -96,7 +96,7 @@ func TestRunDeleteUsers(t *testing.T) {
 	validUUID := uuid.New().String()
 
 	allSsoUsers := &sso.Users{
-		Data: &[]sso.User{
+		Data: []sso.User{
 			makeUserForDeleteTest("id1", "user1@example.com", "user1@example2.com"),
 			makeUserForDeleteTest("id2", "user2@example.com", "user2@example2.com"),
 			makeUserForDeleteTest("id3", "user3@another.com", "user3@another2.com"),
@@ -141,14 +141,14 @@ func TestRunDeleteUsers(t *testing.T) {
 		}, nil).Once()
 
 		expectedUsersToDelete := sso.Users{
-			Data: &[]sso.User{
+			Data: []sso.User{
 				makeUserForDeleteTest("id4", "user4@example.com", "user4@example.com"),
 			},
 		}
 
 		mockSso.On("DeleteUsers", groupID, mock.Anything, &logger).Run(func(args mock.Arguments) {
 			usersArg := args.Get(1).(sso.Users)
-			assert.ElementsMatch(t, *expectedUsersToDelete.Data, *usersArg.Data)
+			assert.ElementsMatch(t, expectedUsersToDelete.Data, usersArg.Data)
 		}).Return(nil).Once()
 
 		err = runDeleteUsers([]string{groupID}, &logger, mockSso)
@@ -204,10 +204,10 @@ func TestRunDeleteUsers(t *testing.T) {
 		}
 		mockSso.On("FilterUsersByDomain", domain, *allSsoUsers, false, &logger).Return(filteredUsers, nil).Once()
 
-		expectedUsersToDelete := sso.Users{Data: &filteredUsers}
+		expectedUsersToDelete := sso.Users{Data: filteredUsers}
 		mockSso.On("DeleteUsers", validUUID, mock.Anything, &logger).Run(func(args mock.Arguments) {
 			usersArg := args.Get(1).(sso.Users)
-			assert.ElementsMatch(t, *expectedUsersToDelete.Data, *usersArg.Data)
+			assert.ElementsMatch(t, expectedUsersToDelete.Data, usersArg.Data)
 		}).Return(nil).Once()
 
 		err := runDeleteUsers([]string{validUUID}, &logger, mockSso)
@@ -235,11 +235,11 @@ func TestRunDeleteUsers(t *testing.T) {
 		).Return(filteredUsers, nil).Once()
 
 		expectedUsersToDelete := sso.Users{
-			Data: &filteredUsers,
+			Data: filteredUsers,
 		}
 		mockSso.On("DeleteUsers", validUUID, mock.Anything, &logger).Run(func(args mock.Arguments) {
 			usersArg := args.Get(1).(sso.Users)
-			assert.ElementsMatch(t, *expectedUsersToDelete.Data, *usersArg.Data)
+			assert.ElementsMatch(t, expectedUsersToDelete.Data, usersArg.Data)
 		}).Return(nil).Once()
 
 		err := runDeleteUsers([]string{validUUID}, &logger, mockSso)
@@ -299,11 +299,11 @@ func TestRunDeleteUsers(t *testing.T) {
 		).Return(filteredUsers, nil).Once()
 
 		expectedUsersToDelete := sso.Users{
-			Data: &filteredUsers,
+			Data: filteredUsers,
 		}
 		mockSso.On("DeleteUsers", validUUID, mock.Anything, &logger).Run(func(args mock.Arguments) {
 			usersArg := args.Get(1).(sso.Users)
-			assert.ElementsMatch(t, *expectedUsersToDelete.Data, *usersArg.Data)
+			assert.ElementsMatch(t, expectedUsersToDelete.Data, usersArg.Data)
 		}).Return(nil).Once()
 
 		err = runDeleteUsers([]string{validUUID}, &logger, mockSso)

@@ -33,11 +33,11 @@ func getAndFilterUsers(groupID string, logger *zerolog.Logger, sc userFetcher) (
 		// Errors from filter functions are intentionally ignored to allow processing to continue.
 		// If no users are found, an empty list is returned, which is handled by the calling function.
 		filteredUserData, _ := sc.FilterUsersByDomain(domain, *ssoUsers, matchByUserName, logger)
-		ssoUsers.Data = &filteredUserData
+		ssoUsers.Data = filteredUserData
 	} else if email != "" {
 		userEmails := []string{email}
 		filteredUserData, _ := sc.FilterUsersByProfileIDs(userEmails, *ssoUsers, matchByUserName, logger)
-		ssoUsers.Data = &filteredUserData
+		ssoUsers.Data = filteredUserData
 	} else if csvFilePath != "" {
 		csvEmails, err := readCsvFile(csvFilePath, logger)
 		if err != nil {
@@ -51,7 +51,7 @@ func getAndFilterUsers(groupID string, logger *zerolog.Logger, sc userFetcher) (
 		}
 		// filter for a specific SSO User from the provided email in CSV line
 		filteredUserData, _ := sc.FilterUsersByProfileIDs(csvEmails, *ssoUsers, matchByUserName, logger)
-		ssoUsers.Data = &filteredUserData
+		ssoUsers.Data = filteredUserData
 	}
 
 	return ssoUsers, nil

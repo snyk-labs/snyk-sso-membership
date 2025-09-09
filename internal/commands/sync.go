@@ -75,10 +75,10 @@ func SyncMemberships(logger *zerolog.Logger) *cobra.Command {
 				}
 				// filter SSO individuals with provided CSV emails and include their corresponding provisioned email in the SSO domain
 				filteredUserData := filterUsers(csvEmails, *ssoUsers, true, matchByUserName, matchToLocalPart, logger)
-				ssoUsers.Data = &filteredUserData
+				ssoUsers.Data = filteredUserData
 			}
 
-			if len(*ssoUsers.Data) > 0 {
+			if len(ssoUsers.Data) > 0 {
 				mc := membership.New(c)
 				// synchronize Group and Org memberships of matching users of domain to ssoDomain
 				mc.SyncMemberships(groupID, domain, ssoDomain, *ssoUsers, matchByUserName, matchToLocalPart, logger)
@@ -112,7 +112,7 @@ func filterUsers(emails []string, users sso.Users, includeSSODomain, matchByUser
 		}
 
 		// iterate through SSO users looking up the domain User and the provisioned User on the SSO domain
-		for _, user := range *users.Data {
+		for _, user := range users.Data {
 			// match domain user based on matchByUserName and SSO domain user based on matchToLocalPart
 			if matchDomainUser(user, email, matchByUserName) || matchDestinationUser(user, provisionedEmail, localPart, matchToLocalPart) {
 				filteredUsers = append(filteredUsers, user)
