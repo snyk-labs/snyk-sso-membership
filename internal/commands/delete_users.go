@@ -24,7 +24,7 @@ func DeleteUsers(logger *zerolog.Logger) *cobra.Command {
 			return validateGetDeleteArgs(logger, args)
 		},
 		RunE: func(_ *cobra.Command, args []string) error {
-			c := client.New(config.New())
+			c := client.New(config.New(), logger)
 			sc := sso.New(c)
 			return runDeleteUsers(args, logger, sc)
 		},

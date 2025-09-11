@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/rs/zerolog"
@@ -42,18 +41,16 @@ func (rl *retryableLogger) Printf(format string, v ...any) {
 	rl.logger.Debug().Msgf(format, v...)
 }
 
-func New(cfg *config.Config) SnykClient {
+func New(cfg *config.Config, logger *zerolog.Logger) SnykClient {
 	c := &SnykClientImpl{}
 	c.baseURI = cfg.BaseURI
 	c.authorizationHeader = cfg.AuthorizationHeader
-	output := zerolog.ConsoleWriter{Out: os.Stderr}
-	logger := zerolog.New(output).With().Timestamp().Logger()
-	c.logger = &logger
+	c.logger = logger
 	transport := NewSnykAPITransport(cfg.AuthorizationHeader, cfg.Version, cfg.SkipVerifyTLS)
 	retryClient := retryablehttp.NewClient()
 	retryClient.HTTPClient.Transport = transport
 	retryClient.RetryMax = MaxRetries
-	retryClient.Logger = &retryableLogger{logger: &logger}
+	retryClient.Logger = &retryableLogger{logger: logger}
 	c.httpClient = retryClient.StandardClient()
 
 	return c

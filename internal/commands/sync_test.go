@@ -105,20 +105,6 @@ func TestSyncMemberships_Args(t *testing.T) {
 func TestFilterUsers(t *testing.T) {
 	logger := zerolog.Nop()
 
-	// Helper to create sso.User
-	// makeUser := func(id, email string, username ...string) sso.User {
-	// 	attrs := &struct {
-	// 		Name     *string `json:"name"`
-	// 		Email    *string `json:"email"`
-	// 		UserName *string `json:"username"`
-	// 		Active   *bool   `json:"active"`
-	// 	}{Email: &email}
-	// 	if len(username) > 0 {
-	// 		attrs.UserName = &username[0]
-	// 	}
-	// 	return sso.User{ID: &id, Attributes: attrs}
-	// }
-
 	ssoUsers := sso.Users{
 		Data: []sso.User{
 			makeUser("id1", "user1@example.com", "user1@example2.com"),

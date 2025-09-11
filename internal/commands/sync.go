@@ -41,6 +41,10 @@ func SyncMemberships(logger *zerolog.Logger) *cobra.Command {
 				logger.Error().Msgf("ssoDomain must be a valid domain name: %s", ssoDomain)
 				return fmt.Errorf("ssoDomain must be a valid domain name: %s", ssoDomain)
 			}
+			if domain == ssoDomain {
+				logger.Error().Msg("domain and ssoDomain must be different")
+				return fmt.Errorf("domain and ssoDomain must be different")
+			}
 
 			if csvFilePath != "" {
 				if _, err := os.Stat(csvFilePath); os.IsNotExist(err) {
@@ -54,7 +58,7 @@ func SyncMemberships(logger *zerolog.Logger) *cobra.Command {
 			groupID := args[0]
 
 			// instantiate a new client and sso service
-			c := client.New(config.New())
+			c := client.New(config.New(), logger)
 			sc := sso.New(c)
 			// get all sso users
 			ssoUsers, err := sc.GetUsers(groupID, logger)
