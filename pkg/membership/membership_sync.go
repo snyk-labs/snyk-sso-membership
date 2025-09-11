@@ -2,6 +2,7 @@ package membership
 
 import (
 	"fmt"
+	"net/mail"
 	"strings"
 
 	"github.com/rs/zerolog"
@@ -32,29 +33,75 @@ func matchToUserProperty(u sso.User, localPart, provisionedEmail string, matchTo
 	return false
 }
 
+// isValidEmailRFC5322 checks an email is a valid address based on RFC5322 standards.
+func isValidEmailRFC5322(email string) bool {
+	_, err := mail.ParseAddress(email)
+	return err == nil
+}
+
+// matchSourceDomainUser checks if a user should be treated as a "source" user
+// based on the domain and the matching strategy flags.
+func matchSourceDomainUser(u sso.User, domain, ssoDomain string, matchByUserName, matchToLocalPart bool) bool {
+	if u.Attributes == nil || u.Attributes.Email == nil || u.Attributes.UserName == nil {
+		return false
+	}
+
+	if matchByUserName {
+		// Primary identifier is username.
+		if !strings.HasSuffix(*u.Attributes.UserName, "@"+domain) {
+			return false
+		}
+
+		if matchToLocalPart {
+			// When matching to a local-part username on the destination, a source user
+			// is confirmed by having a valid email address for their email attribute.
+			return isValidEmailRFC5322(*u.Attributes.Email)
+		}
+		// --ssoDomain is used: confirm user by checking their email is NOT on the ssoDomain.
+		return !strings.HasSuffix(*u.Attributes.Email, "@"+ssoDomain)
+	}
+
+	// Primary identifier is email.
+	if !strings.HasSuffix(*u.Attributes.Email, "@"+domain) {
+		return false
+	}
+
+	if matchToLocalPart {
+		// When matching to a local-part username on the destination, a source user
+		// is confirmed by having a valid email address for their username attribute.
+		return isValidEmailRFC5322(*u.Attributes.UserName)
+	}
+	// --ssoDomain is used: user is identified simply by their email being on the source domain.
+	return true
+}
+
 // Builds a map of the previous domain email of User to its corresponding current provisioned ssoDomain User entity containing its Memberships
 func (m *Client) mapProvisionedUsersAttributes(groupID, domain, ssoDomain string, users sso.Users, matchByUserName, matchToLocalPart bool, logger *zerolog.Logger) (int32, *map[string]provisionedUserAttributes) {
 	provisionedUserAttributesMap := make(map[string]provisionedUserAttributes)
 
 	for _, u := range users.Data {
-		if (!matchByUserName && strings.HasSuffix(*u.Attributes.Email, domain)) || (matchByUserName && strings.HasSuffix(*u.Attributes.UserName, domain)) {
+		if matchSourceDomainUser(u, domain, ssoDomain, matchByUserName, matchToLocalPart) {
 			userID := *u.ID
 			groupMemberships, err := m.getUserGroupMemberships(groupID, userID)
 			if err != nil || groupMemberships == nil || len(groupMemberships.Data) == 0 {
 				logger.Info().Msg(fmt.Sprintf("No existent Group membership found for user: %s", *u.Attributes.Email))
 				logger.Warn().Msg(err.Error())
 			}
+
 			orgMemberships, err := m.getUserOrgMembershipsOfGroup(groupID, userID)
 			if err != nil {
 				logger.Info().Msg(fmt.Sprintf("No existent Org membership found for user: %s", *u.Attributes.Email))
 				logger.Warn().Msg(err.Error())
 			}
+
 			var prevKeyIdentifier string
 			if matchByUserName {
 				prevKeyIdentifier = *u.Attributes.UserName
 			} else {
 				prevKeyIdentifier = *u.Attributes.Email
 			}
+			// logging some stats
+			logger.Info().Msg(fmt.Sprintf("Found UserKeyIdentifier: %s, GroupMemberships: %d, OrgMemberships: %d", prevKeyIdentifier, len(groupMemberships.Data), len(orgMemberships.Data)))
 
 			provisionedUserAttributesMap[prevKeyIdentifier] = provisionedUserAttributes{
 				id:                u.ID,
@@ -142,6 +189,8 @@ func (m *Client) deleteUserOrgMembership(groupID, userID, userIdentifier string,
 		if err != nil {
 			logger.Info().Msg(fmt.Sprintf("Failed to delete OrgMembership of User: username: %s, Org: %s", userIdentifier, orgName))
 			logger.Error().Msg(err.Error())
+		} else {
+			logger.Info().Msg(fmt.Sprintf("Deleted existing OrgMembership of User: username: %s, Org: %s", userIdentifier, orgName))
 		}
 	}
 	return nil
