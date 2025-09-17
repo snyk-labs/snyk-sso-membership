@@ -84,14 +84,12 @@ func (m *Client) mapProvisionedUsersAttributes(groupID, domain, ssoDomain string
 			userID := *u.ID
 			groupMemberships, err := m.getUserGroupMemberships(groupID, userID)
 			if err != nil || groupMemberships == nil || len(groupMemberships.Data) == 0 {
-				logger.Info().Msg(fmt.Sprintf("No existent Group membership found for user: %s", *u.Attributes.Email))
-				logger.Warn().Msg(err.Error())
+				logger.Warn().Msg(fmt.Sprintf("No existent Group membership found for user: %s", *u.Attributes.Email))
 			}
 
 			orgMemberships, err := m.getUserOrgMembershipsOfGroup(groupID, userID)
-			if err != nil {
-				logger.Info().Msg(fmt.Sprintf("No existent Org membership found for user: %s", *u.Attributes.Email))
-				logger.Warn().Msg(err.Error())
+			if err != nil || orgMemberships == nil || len(orgMemberships.Data) == 0 {
+				logger.Warn().Msg(fmt.Sprintf("No existent Org membership found for user: %s", *u.Attributes.Email))
 			}
 
 			var prevKeyIdentifier string
@@ -100,13 +98,26 @@ func (m *Client) mapProvisionedUsersAttributes(groupID, domain, ssoDomain string
 			} else {
 				prevKeyIdentifier = *u.Attributes.Email
 			}
+
+			// retrieve groupMembershipID for updating role later
+			var groupMembershipID *string
+			if groupMemberships != nil && len(groupMemberships.Data) > 0 {
+				groupMembershipID = groupMemberships.Data[0].ID
+			}
+			var groupsCount, orgsCount int
+			if groupMemberships != nil {
+				groupsCount = len(groupMemberships.Data)
+			}
+			if orgMemberships != nil {
+				orgsCount = len(orgMemberships.Data)
+			}
 			// logging some stats
-			logger.Info().Msg(fmt.Sprintf("Found UserKeyIdentifier: %s, GroupMemberships: %d, OrgMemberships: %d", prevKeyIdentifier, len(groupMemberships.Data), len(orgMemberships.Data)))
+			logger.Info().Msg(fmt.Sprintf("Found UserKeyIdentifier: %s, GroupMemberships: %d, OrgMemberships: %d", prevKeyIdentifier, groupsCount, orgsCount))
 
 			provisionedUserAttributesMap[prevKeyIdentifier] = provisionedUserAttributes{
 				id:                u.ID,
 				userName:          u.Attributes.UserName,
-				groupMembershipID: groupMemberships.Data[0].ID,
+				groupMembershipID: groupMembershipID,
 				groupMemberships:  groupMemberships,
 				orgMemberships:    orgMemberships,
 			}
@@ -202,6 +213,11 @@ func (m *Client) syncUserOrgMemberships(groupID string, uAttributes *provisioned
 	err := m.deleteUserOrgMembership(groupID, *uAttributes.provisionedID, *uAttributes.provisionedUserName, logger)
 	if err != nil {
 		logger.Warn().Msg(fmt.Sprintf("Failed to delete OrgMembership of User: username: %s", *uAttributes.provisionedUserName))
+	}
+
+	if uAttributes.orgMemberships == nil || len(uAttributes.orgMemberships.Data) == 0 {
+		logger.Warn().Msg(fmt.Sprintf("No OrgMemberships to create for User: username: %s", *uAttributes.provisionedUserName))
+		return
 	}
 
 	for _, om := range uAttributes.orgMemberships.Data {
