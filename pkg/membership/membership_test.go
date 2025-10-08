@@ -152,7 +152,7 @@ func TestGetUserOrgMembershipsOfGroup(t *testing.T) {
 
 	mockClient.On("Get", expectedPath).Return(expectedResponse, nil)
 
-	memberships, err := m.getUserOrgMembershipsOfGroup(groupID, userID)
+	memberships, err := m.GetUserOrgMembershipsOfGroup(groupID, userID)
 	assert.NoError(t, err)
 	assert.Equal(t, &expectedMemberships, memberships)
 
@@ -189,7 +189,7 @@ func TestGetUserOrgMembershipsOfGroup_Pagination(t *testing.T) {
 	mockClient.On("Get", path1).Return(body1, nil).Once()
 	mockClient.On("Get", path2).Return(body2, nil).Once()
 
-	memberships, err := m.getUserOrgMembershipsOfGroup(groupID, userID)
+	memberships, err := m.GetUserOrgMembershipsOfGroup(groupID, userID)
 	assert.NoError(t, err)
 	assert.NotNil(t, memberships)
 	assert.Len(t, memberships.Data, 2)
@@ -210,7 +210,7 @@ func TestGetUserOrgMemberships_Error(t *testing.T) {
 	expectedPath := fmt.Sprintf("/rest/groups/%s/org_memberships?limit=100&user_id=%s", groupID, userID)
 	mockClient.On("Get", expectedPath).Return([]byte{}, errors.New("get error"))
 
-	_, err := m.getUserOrgMembershipsOfGroup(groupID, userID)
+	_, err := m.GetUserOrgMembershipsOfGroup(groupID, userID)
 	assert.Error(t, err)
 	assert.EqualError(t, err, "get error")
 
@@ -228,7 +228,7 @@ func TestGetUserOrgMemberships_UnmarshalError(t *testing.T) {
 	expectedPath := fmt.Sprintf("/rest/groups/%s/org_memberships?limit=100&user_id=%s", groupID, userID)
 	mockClient.On("Get", expectedPath).Return([]byte("invalid json"), nil)
 
-	_, err := m.getUserOrgMembershipsOfGroup(groupID, userID)
+	_, err := m.GetUserOrgMembershipsOfGroup(groupID, userID)
 	assert.Error(t, err)
 
 	mockClient.AssertExpectations(t)

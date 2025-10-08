@@ -157,7 +157,7 @@ func (m *Client) getPaginatedMemberships(requestPath string) ([]Membership, erro
 	return allMemberships, nil
 }
 
-func (m *Client) getUserGroupMemberships(groupID, userID string) (*UserGroupMemberships, error) {
+func (m *Client) GetUserGroupMemberships(groupID, userID string) (*UserGroupMemberships, error) {
 	requestPath := fmt.Sprintf("/rest/groups/%s/memberships?limit=100&user_id=%s", groupID, userID)
 	allMemberships, err := m.getPaginatedMemberships(requestPath)
 	if err != nil {
@@ -166,7 +166,7 @@ func (m *Client) getUserGroupMemberships(groupID, userID string) (*UserGroupMemb
 	return &UserGroupMemberships{Data: allMemberships}, nil
 }
 
-func (m *Client) getUserOrgMembershipsOfGroup(groupID, userID string) (*UserOrgMemberships, error) {
+func (m *Client) GetUserOrgMembershipsOfGroup(groupID, userID string) (*UserOrgMemberships, error) {
 	requestPath := fmt.Sprintf("/rest/groups/%s/org_memberships?limit=100&user_id=%s", groupID, userID)
 	allMemberships, err := m.getPaginatedMemberships(requestPath)
 	if err != nil {

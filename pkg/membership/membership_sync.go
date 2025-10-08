@@ -82,12 +82,12 @@ func (m *Client) mapProvisionedUsersAttributes(groupID, domain, ssoDomain string
 	for _, u := range users.Data {
 		if matchSourceDomainUser(u, domain, ssoDomain, matchByUserName, matchToLocalPart) {
 			userID := *u.ID
-			groupMemberships, err := m.getUserGroupMemberships(groupID, userID)
+			groupMemberships, err := m.GetUserGroupMemberships(groupID, userID)
 			if err != nil || groupMemberships == nil || len(groupMemberships.Data) == 0 {
 				logger.Warn().Msg(fmt.Sprintf("No existent Group membership found for user: %s", *u.Attributes.Email))
 			}
 
-			orgMemberships, err := m.getUserOrgMembershipsOfGroup(groupID, userID)
+			orgMemberships, err := m.GetUserOrgMembershipsOfGroup(groupID, userID)
 			if err != nil || orgMemberships == nil || len(orgMemberships.Data) == 0 {
 				logger.Warn().Msg(fmt.Sprintf("No existent Org membership found for user: %s", *u.Attributes.Email))
 			}
@@ -140,7 +140,7 @@ func (m *Client) mapProvisionedUsersAttributes(groupID, domain, ssoDomain string
 				}
 
 				// get the GroupMembership of provisioned User to update
-				pGroupMemberships, err := m.getUserGroupMemberships(groupID, *u.ID)
+				pGroupMemberships, err := m.GetUserGroupMemberships(groupID, *u.ID)
 				if err == nil && pGroupMemberships != nil && len(pGroupMemberships.Data) > 0 {
 					uAttributes.provisionedGroupMembershipID = pGroupMemberships.Data[0].ID
 				} else if err != nil {
@@ -185,7 +185,7 @@ func (m *Client) updateUserGroupMembership(uAttributes *provisionedUserAttribute
 // Deletes the current provisioned ssoDomain User org memberships
 func (m *Client) deleteUserOrgMembership(groupID, userID, userIdentifier string, logger *zerolog.Logger) error {
 	// get User org memberships
-	userOrgMemberships, err := m.getUserOrgMembershipsOfGroup(groupID, userID)
+	userOrgMemberships, err := m.GetUserOrgMembershipsOfGroup(groupID, userID)
 	if err != nil {
 		logger.Info().Msg(fmt.Sprintf("Failed to get org memberships of User: username: %s", userIdentifier))
 		logger.Error().Msg(err.Error())
