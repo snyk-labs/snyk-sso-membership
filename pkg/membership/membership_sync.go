@@ -196,7 +196,7 @@ func (m *Client) deleteUserOrgMembership(groupID, userID, userIdentifier string,
 	for _, om := range userOrgMemberships.Data {
 		orgID := om.Relationship.Org.Data.ID
 		orgName := *om.Relationship.Org.Data.Attributes.Name
-		err := m.deleteOrgMembership(*orgID, *om.ID)
+        err := m.DeleteOrgMembership(*orgID, *om.ID)
 		if err != nil {
 			logger.Info().Msg(fmt.Sprintf("Failed to delete OrgMembership of User: username: %s, Org: %s", userIdentifier, orgName))
 			logger.Error().Msg(err.Error())
@@ -240,7 +240,7 @@ func (m *Client) syncUserOrgMemberships(groupID string, uAttributes *provisioned
 		orgID := om.Relationship.Org.Data.ID
 		orgName := *om.Relationship.Org.Data.Attributes.Name
 		// recreate them again so they will match org memberships of the pre-migrated User
-		_, err = m.createUserOrgMembership(*orgID, orgMbrRelationship)
+		_, err = m.CreateUserOrgMembership(*orgID, orgMbrRelationship)
 		if err != nil {
 			errorMessage := err.Error()
 			// make it idempotent by ignoring Error status code 409 Conflict - Membership already exists for the specified user
@@ -280,7 +280,7 @@ func (m *Client) syncUserGroupMembership(uAttributes *provisionedUserAttributes,
 		}
 		groupID := gm.Relationship.Group.Data.ID
 		groupName := *gm.Relationship.Group.Data.Attributes.Name
-		_, err := m.createUserGroupMembership(*groupID, groupMbrRelationship)
+		_, err := m.CreateUserGroupMembership(*groupID, groupMbrRelationship)
 		if err != nil {
 			logger.Error().Msg(fmt.Sprintf("Failed to create GroupMembership of User: username: %s, Group: %s", *uAttributes.provisionedUserName, groupName))
 		} else {

@@ -309,7 +309,7 @@ func (m *Client) updateRoleAtUserGroupMembership(groupID, membershipID string, m
 	return nil
 }
 
-func (m *Client) createUserOrgMembership(orgID string, mbrRelationship MemberRelationship) (*Response, error) {
+func (m *Client) CreateUserOrgMembership(orgID string, mbrRelationship MemberRelationship) (*Response, error) {
 	reqBody := m.createMembershipRequestBody(OrgMembershipType, mbrRelationship)
 	encodedBody, err := json.Marshal(reqBody)
 	if err != nil {
@@ -330,7 +330,7 @@ func (m *Client) createUserOrgMembership(orgID string, mbrRelationship MemberRel
 	return &orgMembership, nil
 }
 
-func (m *Client) createUserGroupMembership(groupID string, mbrRelationship MemberRelationship) (*Response, error) {
+func (m *Client) CreateUserGroupMembership(groupID string, mbrRelationship MemberRelationship) (*Response, error) {
 	reqBody := m.createMembershipRequestBody(GroupMembershipType, mbrRelationship)
 	encodedBody, err := json.Marshal(reqBody)
 	if err != nil {
@@ -351,7 +351,7 @@ func (m *Client) createUserGroupMembership(groupID string, mbrRelationship Membe
 	return &groupMembership, nil
 }
 
-func (m *Client) deleteOrgMembership(orgID, membershipID string) error {
+func (m *Client) DeleteOrgMembership(orgID, membershipID string) error {
 	requestPath := fmt.Sprintf("/rest/orgs/%s/memberships/%s", orgID, membershipID)
 	_, err := m.client.Delete(requestPath)
 	if err != nil {
@@ -359,4 +359,14 @@ func (m *Client) deleteOrgMembership(orgID, membershipID string) error {
 	}
 
 	return nil
+}
+
+// DeleteGroupMembership deletes a group membership by group and membership IDs.
+func (m *Client) DeleteGroupMembership(groupID, membershipID string) error {
+    requestPath := fmt.Sprintf("/rest/groups/%s/memberships/%s", groupID, membershipID)
+    _, err := m.client.Delete(requestPath)
+    if err != nil {
+        return err
+    }
+    return nil
 }

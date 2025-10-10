@@ -88,6 +88,12 @@ func DefaultCommand() *cobra.Command {
 	_ = getUsersCmd.MarkFlagFilename("csvFilePath", "csv")
 	cmd.AddCommand(getUsersCmd)
 
+	deleteMembershipsFromJSONCmd := DeleteMembershipsFromJSON(&logger)
+	cmd.AddCommand(deleteMembershipsFromJSONCmd)
+
+	assignMembershipsFromJSONCmd := AssignMembershipsFromJSON(&logger)
+	cmd.AddCommand(assignMembershipsFromJSONCmd)
+
 	generateMembershipsJSONCmd := GenerateMembershipsJSON(&logger)
 	generateMembershipsJSONCmd.Flags().StringVar(&domain, "domain", "", "Domain")
 	generateMembershipsJSONCmd.Flags().StringVar(&email, "email", "", "Email")

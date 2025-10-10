@@ -42,7 +42,7 @@ func TestGetUserGroupMemberships(t *testing.T) {
 
 	mockClient.On("Get", expectedPath).Return(expectedResponse, nil)
 
-	memberships, err := m.getUserGroupMemberships(groupID, userID)
+    memberships, err := m.GetUserGroupMemberships(groupID, userID)
 	assert.NoError(t, err)
 	assert.Equal(t, &expectedMemberships, memberships)
 
@@ -83,7 +83,7 @@ func TestGetUserGroupMemberships_Pagination(t *testing.T) {
 	mockClient.On("Get", path1).Return(body1, nil).Once()
 	mockClient.On("Get", path2).Return(body2, nil).Once()
 
-	memberships, err := m.getUserGroupMemberships(groupID, userID)
+    memberships, err := m.GetUserGroupMemberships(groupID, userID)
 	assert.NoError(t, err)
 	assert.NotNil(t, memberships)
 	assert.Len(t, memberships.Data, 2)
@@ -103,7 +103,7 @@ func TestGetUserGroupMemberships_Error(t *testing.T) {
 	expectedPath := fmt.Sprintf("/rest/groups/%s/memberships?limit=100&user_id=%s", groupID, userID)
 	mockClient.On("Get", expectedPath).Return([]byte{}, errors.New("get error"))
 
-	_, err := m.getUserGroupMemberships(groupID, userID)
+    _, err := m.GetUserGroupMemberships(groupID, userID)
 	assert.Error(t, err)
 	assert.EqualError(t, err, "get error")
 
@@ -120,7 +120,7 @@ func TestGetUserGroupMemberships_UnmarshalError(t *testing.T) {
 	expectedPath := fmt.Sprintf("/rest/groups/%s/memberships?limit=100&user_id=%s", groupID, userID)
 	mockClient.On("Get", expectedPath).Return([]byte("invalid json"), nil)
 
-	_, err := m.getUserGroupMemberships(groupID, userID)
+    _, err := m.GetUserGroupMemberships(groupID, userID)
 	assert.Error(t, err)
 
 	mockClient.AssertExpectations(t)
@@ -284,7 +284,7 @@ func TestCreateUserGroupMembership(t *testing.T) {
 		return bytes.Equal(buf.Bytes(), expectedReqBody)
 	})).Return(expectedResponseBody, nil)
 
-	response, err := m.createUserGroupMembership(groupID, mbrRelationship)
+	response, err := m.CreateUserGroupMembership(groupID, mbrRelationship)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedResponse, *response)
 
@@ -328,7 +328,7 @@ func TestCreateUserGroupMembership_Error(t *testing.T) {
 		return bytes.Equal(buf.Bytes(), expectedReqBody)
 	})).Return([]byte{}, errors.New("post error"))
 
-	_, err := m.createUserGroupMembership(groupID, mbrRelationship)
+	_, err := m.CreateUserGroupMembership(groupID, mbrRelationship)
 	assert.Error(t, err)
 	assert.EqualError(t, err, "post error")
 
@@ -372,7 +372,7 @@ func TestCreateUserGroupMembership_UnmarshalError(t *testing.T) {
 		return bytes.Equal(buf.Bytes(), expectedReqBody)
 	})).Return([]byte("invalid json"), nil)
 
-	_, err := m.createUserGroupMembership(groupID, mbrRelationship)
+	_, err := m.CreateUserGroupMembership(groupID, mbrRelationship)
 	assert.Error(t, err)
 
 	mockClient.AssertExpectations(t)
@@ -428,7 +428,7 @@ func TestCreateUserOrgMembership(t *testing.T) {
 		return bytes.Equal(buf.Bytes(), expectedReqBody)
 	})).Return(expectedResponseBody, nil)
 
-	response, err := m.createUserOrgMembership(orgID, mbrRelationship)
+	response, err := m.CreateUserOrgMembership(orgID, mbrRelationship)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedResponse, *response)
 
@@ -472,7 +472,7 @@ func TestCreateUserOrgMembership_Error(t *testing.T) {
 		return bytes.Equal(buf.Bytes(), expectedReqBody)
 	})).Return([]byte{}, errors.New("post error"))
 
-	_, err := m.createUserOrgMembership(orgID, mbrRelationship)
+	_, err := m.CreateUserOrgMembership(orgID, mbrRelationship)
 	assert.Error(t, err)
 	assert.EqualError(t, err, "post error")
 
@@ -516,7 +516,7 @@ func TestCreateUserOrgMembership_UnmarshalError(t *testing.T) {
 		return bytes.Equal(buf.Bytes(), expectedReqBody)
 	})).Return([]byte("invalid json"), nil)
 
-	_, err := m.createUserOrgMembership(orgID, mbrRelationship)
+	_, err := m.CreateUserOrgMembership(orgID, mbrRelationship)
 	assert.Error(t, err)
 
 	mockClient.AssertExpectations(t)
@@ -533,7 +533,7 @@ func TestDeleteUserOrgMembership(t *testing.T) {
 
 	mockClient.On("Delete", expectedPath).Return([]byte{}, nil)
 
-	err := m.deleteOrgMembership(orgID, membershipID)
+    err := m.DeleteOrgMembership(orgID, membershipID)
 	assert.NoError(t, err)
 
 	mockClient.AssertExpectations(t)
@@ -550,7 +550,7 @@ func TestDeleteUserOrgMembership_Error(t *testing.T) {
 
 	mockClient.On("Delete", expectedPath).Return([]byte{}, errors.New("delete error"))
 
-	err := m.deleteOrgMembership(orgID, membershipID)
+    err := m.DeleteOrgMembership(orgID, membershipID)
 	assert.Error(t, err)
 	assert.EqualError(t, err, "delete error")
 
