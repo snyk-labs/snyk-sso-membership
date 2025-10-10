@@ -1,0 +1,224 @@
+<mxfile host="app.diagrams.net" modified="2025-10-08T00:00:00.000Z" agent="AI Assistant" version="22.0.0">
+  <diagram name="Generate Memberships JSON Workflow" id="workflow">
+    <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="1400" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        
+        <!-- Title -->
+        <mxCell id="title" value="Generate Memberships JSON Workflow for IdP Migration" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="250" y="20" width="600" height="40" as="geometry" />
+        </mxCell>
+        
+        <!-- Phase 1: Export -->
+        <mxCell id="phase1-title" value="Phase 1: Export User Memberships" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="40" y="80" width="320" height="40" as="geometry" />
+        </mxCell>
+        
+        <!-- Start -->
+        <mxCell id="start" value="Run Command:&#xa;generate-memberships-json &lt;groupID&gt; --domain=domain.com" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="80" y="140" width="240" height="60" as="geometry" />
+        </mxCell>
+        
+        <!-- Get SSO Connection -->
+        <mxCell id="get-sso" value="Get SSO Connection" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="80" y="230" width="240" height="50" as="geometry" />
+        </mxCell>
+        
+        <!-- Fetch All SSO Users -->
+        <mxCell id="fetch-users" value="Fetch All SSO Users&#xa;(with pagination)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="80" y="310" width="240" height="50" as="geometry" />
+        </mxCell>
+        
+        <!-- Filter Users -->
+        <mxCell id="filter-users" value="Filter Users&#xa;(by domain/email/CSV)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="80" y="390" width="240" height="50" as="geometry" />
+        </mxCell>
+        
+        <!-- For Each User Loop -->
+        <mxCell id="loop-start" value="For Each User" style="rhombus;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="110" y="470" width="180" height="80" as="geometry" />
+        </mxCell>
+        
+        <!-- Get Group Memberships -->
+        <mxCell id="get-group-memberships" value="Get Group Memberships&#xa;getUserGroupMemberships()" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="80" y="580" width="240" height="50" as="geometry" />
+        </mxCell>
+        
+        <!-- Get Org Memberships -->
+        <mxCell id="get-org-memberships" value="Get Org Memberships&#xa;getUserOrgMembershipsOfGroup()" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="80" y="660" width="240" height="50" as="geometry" />
+        </mxCell>
+        
+        <!-- Build JSON Object -->
+        <mxCell id="build-json" value="Build User Object:&#xa;• user info (id, email, username)&#xa;• group_memberships[]&#xa;• org_memberships[]&#xa;  - org_id (for provision API)&#xa;  - role (ADMIN/MEMBER/COLLABORATOR)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;" vertex="1" parent="1">
+          <mxGeometry x="60" y="740" width="280" height="110" as="geometry" />
+        </mxCell>
+        
+        <!-- Loop End -->
+        <mxCell id="loop-end" value="More Users?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="110" y="880" width="180" height="80" as="geometry" />
+        </mxCell>
+        
+        <!-- Output JSON -->
+        <mxCell id="output-json" value="Output JSON to stdout&#xa;{ &quot;users&quot;: [...] }" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="80" y="990" width="240" height="60" as="geometry" />
+        </mxCell>
+        
+        <!-- Phase 2: Delete -->
+        <mxCell id="phase2-title" value="Phase 2: Delete Old Users" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="420" y="80" width="320" height="40" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="delete-step" value="Run Command:&#xa;delete-users &lt;groupID&gt; --domain=domain.com&#xa;&#xa;⚠️ Sends deletion emails to users" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="460" y="140" width="240" height="80" as="geometry" />
+        </mxCell>
+        
+        <!-- Phase 3: Provision -->
+        <mxCell id="phase3-title" value="Phase 3: Provision Users to New IdP" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="780" y="80" width="320" height="40" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="read-json" value="Read Generated JSON File" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="820" y="140" width="240" height="50" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="provision-loop" value="For Each User" style="rhombus;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="850" y="220" width="180" height="80" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="provision-org-loop" value="For Each&#xa;org_membership" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="850" y="330" width="180" height="80" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="provision-api" value="POST /v1/org/{org_id}/provision&#xa;{&#xa;  &quot;email&quot;: user.email,&#xa;  &quot;role&quot;: org_membership.role&#xa;}&#xa;&#xa;✅ User provisioned with correct role" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;" vertex="1" parent="1">
+          <mxGeometry x="810" y="440" width="260" height="120" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="provision-complete" value="All Users Provisioned&#xa;to New IdP" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="820" y="590" width="240" height="60" as="geometry" />
+        </mxCell>
+        
+        <!-- Key Benefits Box -->
+        <mxCell id="benefits-box" value="✨ Key Benefits:&#xa;• Preserves exact org memberships&#xa;• Maintains role assignments&#xa;• Includes org_id for easy API calls&#xa;• Auto-maps roles to provision format&#xa;• No manual user invites needed" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;align=left;fontStyle=2" vertex="1" parent="1">
+          <mxGeometry x="420" y="250" width="320" height="120" as="geometry" />
+        </mxCell>
+        
+        <!-- Sample JSON Box -->
+        <mxCell id="json-sample" value="Sample JSON Output:&#xa;{&#xa;  &quot;users&quot;: [{&#xa;    &quot;email&quot;: &quot;user@domain.com&quot;,&#xa;    &quot;org_memberships&quot;: [{&#xa;      &quot;org_id&quot;: &quot;abc-123&quot;,  ← For API&#xa;      &quot;role&quot;: &quot;ADMIN&quot;     ← Mapped role&#xa;    }]&#xa;  }]&#xa;}" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;fontStyle=0;fontFamily=Courier New;" vertex="1" parent="1">
+          <mxGeometry x="420" y="400" width="320" height="180" as="geometry" />
+        </mxCell>
+        
+        <!-- Arrows for Phase 1 -->
+        <mxCell id="arrow1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="start" target="get-sso">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="arrow2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="get-sso" target="fetch-users">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="arrow3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="fetch-users" target="filter-users">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="arrow4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="filter-users" target="loop-start">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="arrow5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="loop-start" target="get-group-memberships">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="arrow6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="get-group-memberships" target="get-org-memberships">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="arrow7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="get-org-memberships" target="build-json">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="arrow8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="build-json" target="loop-end">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="arrow9" value="Yes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" source="loop-end" target="loop-start">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="40" y="920" as="sourcePoint" />
+            <mxPoint x="40" y="510" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="40" y="920" />
+              <mxPoint x="40" y="510" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="arrow10" value="No" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="loop-end" target="output-json">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Arrows between phases -->
+        <mxCell id="arrow-phase1-2" value="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=3;strokeColor=#9673a6;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="output-json" target="delete-step">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="360" y="1020" as="sourcePoint" />
+            <mxPoint x="460" y="180" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="380" y="1020" />
+              <mxPoint x="380" y="180" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="arrow-phase2-3" value="2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=3;strokeColor=#9673a6;" edge="1" parent="1" source="delete-step" target="read-json">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Arrows for Phase 3 -->
+        <mxCell id="arrow11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="read-json" target="provision-loop">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="arrow12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="provision-loop" target="provision-org-loop">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="arrow13" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="provision-org-loop" target="provision-api">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="arrow14" value="More orgs" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" source="provision-api" target="provision-org-loop">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1100" y="500" as="sourcePoint" />
+            <Array as="points">
+              <mxPoint x="1100" y="500" />
+              <mxPoint x="1100" y="370" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="arrow15" value="Done, next user" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" source="provision-org-loop" target="provision-loop">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="780" y="370" as="sourcePoint" />
+            <Array as="points">
+              <mxPoint x="780" y="370" />
+              <mxPoint x="780" y="260" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="arrow16" value="All users done" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="provision-loop" target="provision-complete">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="940" y="320" as="sourcePoint" />
+            <mxPoint x="940" y="590" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="760" y="260" />
+              <mxPoint x="760" y="620" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
+

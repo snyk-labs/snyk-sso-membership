@@ -17,6 +17,7 @@ var (
 	csvFilePath      string
 	matchByUserName  bool
 	matchToLocalPart bool
+	groups           string
 )
 
 func DefaultCommand() *cobra.Command {
@@ -98,6 +99,7 @@ func DefaultCommand() *cobra.Command {
 	generateMembershipsJSONCmd.Flags().StringVar(&domain, "domain", "", "Domain")
 	generateMembershipsJSONCmd.Flags().StringVar(&email, "email", "", "Email")
 	generateMembershipsJSONCmd.Flags().StringVar(&csvFilePath, "csvFilePath", "", "Path to CSV file containing email addresses (optional)")
+	generateMembershipsJSONCmd.Flags().StringVar(&groups, "groups", "", "Comma-separated list of group IDs to process (optional)")
 	generateMembershipsJSONCmd.Flags().BoolVar(&matchByUserName, "matchByUserName", false, "Match by UserName Identifier (default: false)")
 	generateMembershipsJSONCmd.MarkFlagsMutuallyExclusive("domain", "email", "csvFilePath")
 	_ = generateMembershipsJSONCmd.MarkFlagFilename("csvFilePath", "csv")
