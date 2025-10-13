@@ -196,7 +196,7 @@ func (m *Client) deleteUserOrgMembership(groupID, userID, userIdentifier string,
 	for _, om := range userOrgMemberships.Data {
 		orgID := om.Relationship.Org.Data.ID
 		orgName := *om.Relationship.Org.Data.Attributes.Name
-        err := m.DeleteOrgMembership(*orgID, *om.ID)
+		err := m.DeleteOrgMembership(*orgID, *om.ID)
 		if err != nil {
 			logger.Info().Msg(fmt.Sprintf("Failed to delete OrgMembership of User: username: %s, Org: %s", userIdentifier, orgName))
 			logger.Error().Msg(err.Error())

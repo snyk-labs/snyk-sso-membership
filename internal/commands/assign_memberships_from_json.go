@@ -17,18 +17,18 @@ import (
 // assignUsersWithMemberships matches the JSON structure from generate-memberships-json
 type assignUsersWithMemberships struct {
 	Users []struct {
-		ID               string `json:"id"`        // user ID
+		ID               string `json:"id"` // user ID
 		Email            string `json:"email"`
 		Username         string `json:"username"`
 		GroupMemberships []struct {
-			ID       string `json:"id"`        // group id
-			Name     string `json:"name"`      // group name
+			ID       string `json:"id"`   // group id
+			Name     string `json:"name"` // group name
 			RoleID   string `json:"role_id"`
 			RoleName string `json:"role_name"`
 		} `json:"group_memberships"`
 		OrgMemberships []struct {
-			ID       string `json:"id"`        // org id (also in org_id)
-			Name     string `json:"name"`      // org name
+			ID       string `json:"id"`   // org id (also in org_id)
+			Name     string `json:"name"` // org name
 			OrgID    string `json:"org_id"`
 			RoleID   string `json:"role_id"`
 			RoleName string `json:"role_name"`
@@ -84,6 +84,9 @@ func runAssignMembershipsFromJSON(groupID, path string, logger *zerolog.Logger, 
 		logger.Error().Err(err).Msg("failed to read input file")
 		return err
 	}
+
+	// Strip BOM if present (handles UTF-8, UTF-16 BOMs)
+	bytes = stripBOM(bytes)
 
 	var payload assignUsersWithMemberships
 	if err := json.Unmarshal(bytes, &payload); err != nil {
@@ -168,7 +171,7 @@ func runAssignMembershipsFromJSON(groupID, path string, logger *zerolog.Logger, 
 			groupNameStr := gm.Name
 			roleIDStr := gm.RoleID
 			roleNameStr := gm.RoleName
-			userIDStr := *ssoUser.ID  // Use NEW user ID from group
+			userIDStr := *ssoUser.ID // Use NEW user ID from group
 			userType := sso.TypeUser
 
 			mbrRelationship := membership.MemberRelationship{
@@ -225,7 +228,7 @@ func runAssignMembershipsFromJSON(groupID, path string, logger *zerolog.Logger, 
 			orgNameStr := om.Name
 			roleIDStr := om.RoleID
 			roleNameStr := om.RoleName
-			userIDStr := *ssoUser.ID  // Use NEW user ID from group
+			userIDStr := *ssoUser.ID // Use NEW user ID from group
 			userType := sso.TypeUser
 
 			mbrRelationship := membership.MemberRelationship{
@@ -277,4 +280,3 @@ func runAssignMembershipsFromJSON(groupID, path string, logger *zerolog.Logger, 
 func ptrString(s string) *string {
 	return &s
 }
-

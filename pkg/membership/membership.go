@@ -363,10 +363,10 @@ func (m *Client) DeleteOrgMembership(orgID, membershipID string) error {
 
 // DeleteGroupMembership deletes a group membership by group and membership IDs.
 func (m *Client) DeleteGroupMembership(groupID, membershipID string) error {
-    requestPath := fmt.Sprintf("/rest/groups/%s/memberships/%s", groupID, membershipID)
-    _, err := m.client.Delete(requestPath)
-    if err != nil {
-        return err
-    }
-    return nil
+	requestPath := fmt.Sprintf("/rest/groups/%s/memberships/%s", groupID, membershipID)
+	_, err := m.client.Delete(requestPath)
+	if err != nil {
+		return err
+	}
+	return nil
 }

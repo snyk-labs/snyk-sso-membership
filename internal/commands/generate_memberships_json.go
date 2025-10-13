@@ -17,30 +17,30 @@ import (
 
 // UserWithMemberships represents a user with their full membership data
 type UserWithMemberships struct {
-    ID               string           `json:"id"`
-    Username         string           `json:"username"`
-    Email            string           `json:"email"`
-    Name             string           `json:"name"`
-    Active           bool             `json:"active"`
-    GroupMemberships []MembershipInfo `json:"group_memberships"`
-    OrgMemberships   []MembershipInfo `json:"org_memberships"`
+	ID               string           `json:"id"`
+	Username         string           `json:"username"`
+	Email            string           `json:"email"`
+	Name             string           `json:"name"`
+	Active           bool             `json:"active"`
+	GroupMemberships []MembershipInfo `json:"group_memberships"`
+	OrgMemberships   []MembershipInfo `json:"org_memberships"`
 }
 
 // MembershipInfo represents membership details for group or org
 type MembershipInfo struct {
-    MembershipID string `json:"membership_id"`
-    ID           string `json:"id"`
-    Name         string `json:"name"`
-    RoleID       string `json:"role_id"`
-    RoleName     string `json:"role_name"`
-    // For API provisioning - these fields make it easier to iterate and call provision endpoint
-    OrgID string `json:"org_id,omitempty"` // Organization ID for provision API calls
-    Role  string `json:"role,omitempty"`   // Role name for provision API (ADMIN, MEMBER, COLLABORATOR)
+	MembershipID string `json:"membership_id"`
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	RoleID       string `json:"role_id"`
+	RoleName     string `json:"role_name"`
+	// For API provisioning - these fields make it easier to iterate and call provision endpoint
+	OrgID string `json:"org_id,omitempty"` // Organization ID for provision API calls
+	Role  string `json:"role,omitempty"`   // Role name for provision API (ADMIN, MEMBER, COLLABORATOR)
 }
 
 // UsersWithMembershipsResponse represents the full JSON response structure
 type UsersWithMembershipsResponse struct {
-    Users []UserWithMemberships `json:"users"`
+	Users []UserWithMemberships `json:"users"`
 }
 
 func GenerateMembershipsJSON(logger *zerolog.Logger) *cobra.Command {
@@ -129,6 +129,12 @@ func runGenerateMembershipsJSON(args []string, logger *zerolog.Logger, sc userFe
 	// Map to consolidate users by email (or username)
 	userMap := make(map[string]*UserWithMemberships)
 
+	// Create a set of allowed group IDs for filtering
+	allowedGroupIDs := make(map[string]bool)
+	for _, gid := range groupIDs {
+		allowedGroupIDs[gid] = true
+	}
+
 	// Process each group
 	for _, groupID := range groupIDs {
 		logger.Info().Msgf("Fetching users from group: %s", groupID)
@@ -175,9 +181,17 @@ func runGenerateMembershipsJSON(args []string, logger *zerolog.Logger, sc userFe
 			groupMemberships, err := mc.GetUserGroupMemberships(groupID, *user.ID)
 			if err == nil && groupMemberships != nil {
 				for _, gm := range groupMemberships.Data {
+					gmGroupID := safeString(gm.Relationship.Group.Data.ID)
+					
+					// ONLY include memberships from groups in our allowed list
+					if !allowedGroupIDs[gmGroupID] {
+						logger.Debug().Msgf("Skipping group membership %s (group %s not in allowed list)", safeString(gm.ID), gmGroupID)
+						continue
+					}
+					
 					membershipInfo := MembershipInfo{
 						MembershipID: safeString(gm.ID),
-						ID:           safeString(gm.Relationship.Group.Data.ID),
+						ID:           gmGroupID,
 						Name:         safeString(gm.Relationship.Group.Data.Attributes.Name),
 						RoleID:       safeString(gm.Relationship.Role.Data.ID),
 						RoleName:     safeString(gm.Relationship.Role.Data.Attributes.Name),
@@ -218,10 +232,19 @@ func runGenerateMembershipsJSON(args []string, logger *zerolog.Logger, sc userFe
 		}
 	}
 
-	// Convert map to slice
+	// Convert map to slice, excluding users with no memberships
 	var usersWithMemberships []UserWithMemberships
+	totalUsers := len(userMap)
 	for _, user := range userMap {
-		usersWithMemberships = append(usersWithMemberships, *user)
+		// Only include users who have at least one group or org membership
+		if len(user.GroupMemberships) > 0 || len(user.OrgMemberships) > 0 {
+			usersWithMemberships = append(usersWithMemberships, *user)
+		}
+	}
+
+	skippedUsers := totalUsers - len(usersWithMemberships)
+	if skippedUsers > 0 {
+		logger.Info().Msgf("Skipped %d users with no memberships in the specified group(s)", skippedUsers)
 	}
 
 	if len(usersWithMemberships) == 0 {
@@ -256,31 +279,29 @@ func membershipExists(memberships []MembershipInfo, membershipID string) bool {
 
 // Helper functions to safely handle pointer values
 func safeString(ptr *string) string {
-    if ptr == nil {
-        return ""
-    }
-    return *ptr
+	if ptr == nil {
+		return ""
+	}
+	return *ptr
 }
 
 func safeBool(ptr *bool) bool {
-    if ptr == nil {
-        return false
-    }
-    return *ptr
+	if ptr == nil {
+		return false
+	}
+	return *ptr
 }
 
 // mapRoleNameToProvisionAPI maps Snyk role names to the provision API role format
 func mapRoleNameToProvisionAPI(roleName string) string {
-    switch roleName {
-    case "Org Admin", "Group Admin":
-        return "ADMIN"
-    case "Org Member", "Group Member", "Member":
-        return "MEMBER"
-    case "Org Collaborator", "Group Collaborator", "Collaborator":
-        return "COLLABORATOR"
-    default:
-        return "MEMBER"
-    }
+	switch roleName {
+	case "Org Admin", "Group Admin":
+		return "ADMIN"
+	case "Org Member", "Group Member", "Member":
+		return "MEMBER"
+	case "Org Collaborator", "Group Collaborator", "Collaborator":
+		return "COLLABORATOR"
+	default:
+		return "MEMBER"
+	}
 }
-
-

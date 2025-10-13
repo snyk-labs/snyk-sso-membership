@@ -1,36 +1,36 @@
 package commands
 
 import (
-    "encoding/json"
-    "fmt"
-    "io"
-    "os"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
 
-    "github.com/rs/zerolog"
-    "github.com/snyk-labs/snyk-sso-membership/pkg/client"
-    "github.com/snyk-labs/snyk-sso-membership/pkg/config"
-    "github.com/snyk-labs/snyk-sso-membership/pkg/membership"
-    "github.com/spf13/cobra"
+	"github.com/rs/zerolog"
+	"github.com/snyk-labs/snyk-sso-membership/pkg/client"
+	"github.com/snyk-labs/snyk-sso-membership/pkg/config"
+	"github.com/snyk-labs/snyk-sso-membership/pkg/membership"
+	"github.com/spf13/cobra"
 )
 
 // Minimal structs to parse the generated JSON
 type deleteUsersWithMemberships struct {
-    Users []struct {
-        ID               string `json:"id"`
-        Username         string `json:"username"`
-        Email            string `json:"email"`
-        GroupMemberships []struct {
-            MembershipID string `json:"membership_id"`
-            ID           string `json:"id"`   // group id
-            Name         string `json:"name"` // group name
-        } `json:"group_memberships"`
-        OrgMemberships []struct {
-            MembershipID string `json:"membership_id"`
-            ID           string `json:"id"`   // org id
-            OrgID        string `json:"org_id"`
-            Name         string `json:"name"` // org name
-        } `json:"org_memberships"`
-    } `json:"users"`
+	Users []struct {
+		ID               string `json:"id"`
+		Username         string `json:"username"`
+		Email            string `json:"email"`
+		GroupMemberships []struct {
+			MembershipID string `json:"membership_id"`
+			ID           string `json:"id"`   // group id
+			Name         string `json:"name"` // group name
+		} `json:"group_memberships"`
+		OrgMemberships []struct {
+			MembershipID string `json:"membership_id"`
+			ID           string `json:"id"` // org id
+			OrgID        string `json:"org_id"`
+			Name         string `json:"name"` // org name
+		} `json:"org_memberships"`
+	} `json:"users"`
 }
 
 func DeleteMembershipsFromJSON(logger *zerolog.Logger) *cobra.Command {
@@ -65,65 +65,66 @@ func DeleteMembershipsFromJSON(logger *zerolog.Logger) *cobra.Command {
 }
 
 func runDeleteMembershipsFromJSON(path string, logger *zerolog.Logger) error {
-    f, err := os.Open(path)
-    if err != nil {
-        logger.Error().Err(err).Msgf("failed to open input file: %s", path)
-        return err
-    }
-    defer f.Close()
+	f, err := os.Open(path)
+	if err != nil {
+		logger.Error().Err(err).Msgf("failed to open input file: %s", path)
+		return err
+	}
+	defer f.Close()
 
-    bytes, err := io.ReadAll(f)
-    if err != nil {
-        logger.Error().Err(err).Msg("failed to read input file")
-        return err
-    }
+	bytes, err := io.ReadAll(f)
+	if err != nil {
+		logger.Error().Err(err).Msg("failed to read input file")
+		return err
+	}
 
-    var payload deleteUsersWithMemberships
-    if err := json.Unmarshal(bytes, &payload); err != nil {
-        logger.Error().Err(err).Msg("failed to parse JSON input")
-        return err
-    }
+	// Strip BOM if present (handles UTF-8, UTF-16 BOMs)
+	bytes = stripBOM(bytes)
 
-    c := client.New(config.New(), logger)
-    mc := membership.New(c)
+	var payload deleteUsersWithMemberships
+	if err := json.Unmarshal(bytes, &payload); err != nil {
+		logger.Error().Err(err).Msg("failed to parse JSON input")
+		return err
+	}
 
-    logger.Info().Msgf("Processing %d users from JSON file", len(payload.Users))
+	c := client.New(config.New(), logger)
+	mc := membership.New(c)
 
-    for _, u := range payload.Users {
-        userIdentifier := u.Email
-        if userIdentifier == "" {
-            userIdentifier = u.Username
-        }
+	logger.Info().Msgf("Processing %d users from JSON file", len(payload.Users))
 
-        // Delete org memberships first
-        for _, om := range u.OrgMemberships {
-            orgID := om.OrgID
-            if orgID == "" {
-                orgID = om.ID
-            }
-            if om.MembershipID != "" && orgID != "" {
-                if err := mc.DeleteOrgMembership(orgID, om.MembershipID); err != nil {
-                    logger.Error().Err(err).Msgf("failed to delete org membership for user %s in org %s", userIdentifier, om.Name)
-                } else {
-                    logger.Info().Msgf("Deleted org membership in org %s for user %s", om.Name, userIdentifier)
-                }
-            }
-        }
+	for _, u := range payload.Users {
+		userIdentifier := u.Email
+		if userIdentifier == "" {
+			userIdentifier = u.Username
+		}
 
-        // Delete group memberships using group ID from JSON
-        for _, gm := range u.GroupMemberships {
-            if gm.MembershipID != "" && gm.ID != "" {
-                if err := mc.DeleteGroupMembership(gm.ID, gm.MembershipID); err != nil {
-                    logger.Error().Err(err).Msgf("failed to delete group membership for user %s in group %s", userIdentifier, gm.Name)
-                } else {
-                    logger.Info().Msgf("Deleted group membership in group %s for user %s", gm.Name, userIdentifier)
-                }
-            }
-        }
-    }
+		// Delete org memberships first
+		for _, om := range u.OrgMemberships {
+			orgID := om.OrgID
+			if orgID == "" {
+				orgID = om.ID
+			}
+			if om.MembershipID != "" && orgID != "" {
+				if err := mc.DeleteOrgMembership(orgID, om.MembershipID); err != nil {
+					logger.Error().Err(err).Msgf("failed to delete org membership for user %s in org %s", userIdentifier, om.Name)
+				} else {
+					logger.Info().Msgf("Deleted org membership in org %s for user %s", om.Name, userIdentifier)
+				}
+			}
+		}
 
-    logger.Info().Msg("Completed deleting memberships from JSON")
-    return nil
+		// Delete group memberships using group ID from JSON
+		for _, gm := range u.GroupMemberships {
+			if gm.MembershipID != "" && gm.ID != "" {
+				if err := mc.DeleteGroupMembership(gm.ID, gm.MembershipID); err != nil {
+					logger.Error().Err(err).Msgf("failed to delete group membership for user %s in group %s", userIdentifier, gm.Name)
+				} else {
+					logger.Info().Msgf("Deleted group membership in group %s for user %s", gm.Name, userIdentifier)
+				}
+			}
+		}
+	}
+
+	logger.Info().Msg("Completed deleting memberships from JSON")
+	return nil
 }
-
-

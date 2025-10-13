@@ -131,3 +131,20 @@ func validateGetDeleteArgs(logger *zerolog.Logger, args []string) error {
 
 	return nil
 }
+
+// stripBOM removes UTF-8, UTF-16 LE/BE BOMs from the beginning of data
+func stripBOM(data []byte) []byte {
+	// UTF-8 BOM
+	if len(data) >= 3 && data[0] == 0xEF && data[1] == 0xBB && data[2] == 0xBF {
+		return data[3:]
+	}
+	// UTF-16 LE BOM
+	if len(data) >= 2 && data[0] == 0xFF && data[1] == 0xFE {
+		return data[2:]
+	}
+	// UTF-16 BE BOM
+	if len(data) >= 2 && data[0] == 0xFE && data[1] == 0xFF {
+		return data[2:]
+	}
+	return data
+}

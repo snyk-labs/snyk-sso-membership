@@ -42,7 +42,7 @@ func TestGetUserGroupMemberships(t *testing.T) {
 
 	mockClient.On("Get", expectedPath).Return(expectedResponse, nil)
 
-    memberships, err := m.GetUserGroupMemberships(groupID, userID)
+	memberships, err := m.GetUserGroupMemberships(groupID, userID)
 	assert.NoError(t, err)
 	assert.Equal(t, &expectedMemberships, memberships)
 
@@ -83,7 +83,7 @@ func TestGetUserGroupMemberships_Pagination(t *testing.T) {
 	mockClient.On("Get", path1).Return(body1, nil).Once()
 	mockClient.On("Get", path2).Return(body2, nil).Once()
 
-    memberships, err := m.GetUserGroupMemberships(groupID, userID)
+	memberships, err := m.GetUserGroupMemberships(groupID, userID)
 	assert.NoError(t, err)
 	assert.NotNil(t, memberships)
 	assert.Len(t, memberships.Data, 2)
@@ -103,7 +103,7 @@ func TestGetUserGroupMemberships_Error(t *testing.T) {
 	expectedPath := fmt.Sprintf("/rest/groups/%s/memberships?limit=100&user_id=%s", groupID, userID)
 	mockClient.On("Get", expectedPath).Return([]byte{}, errors.New("get error"))
 
-    _, err := m.GetUserGroupMemberships(groupID, userID)
+	_, err := m.GetUserGroupMemberships(groupID, userID)
 	assert.Error(t, err)
 	assert.EqualError(t, err, "get error")
 
@@ -120,7 +120,7 @@ func TestGetUserGroupMemberships_UnmarshalError(t *testing.T) {
 	expectedPath := fmt.Sprintf("/rest/groups/%s/memberships?limit=100&user_id=%s", groupID, userID)
 	mockClient.On("Get", expectedPath).Return([]byte("invalid json"), nil)
 
-    _, err := m.GetUserGroupMemberships(groupID, userID)
+	_, err := m.GetUserGroupMemberships(groupID, userID)
 	assert.Error(t, err)
 
 	mockClient.AssertExpectations(t)
@@ -533,7 +533,7 @@ func TestDeleteUserOrgMembership(t *testing.T) {
 
 	mockClient.On("Delete", expectedPath).Return([]byte{}, nil)
 
-    err := m.DeleteOrgMembership(orgID, membershipID)
+	err := m.DeleteOrgMembership(orgID, membershipID)
 	assert.NoError(t, err)
 
 	mockClient.AssertExpectations(t)
@@ -550,7 +550,7 @@ func TestDeleteUserOrgMembership_Error(t *testing.T) {
 
 	mockClient.On("Delete", expectedPath).Return([]byte{}, errors.New("delete error"))
 
-    err := m.DeleteOrgMembership(orgID, membershipID)
+	err := m.DeleteOrgMembership(orgID, membershipID)
 	assert.Error(t, err)
 	assert.EqualError(t, err, "delete error")
 
