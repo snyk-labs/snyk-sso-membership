@@ -2,6 +2,7 @@ package commands
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -71,27 +72,25 @@ func validateGenerateMembershipsArgs(logger *zerolog.Logger, args []string) erro
 	if !hasPositionalGroup && !hasGroupsFlag {
 		msg := "either groupID argument or --groups flag must be provided"
 		logger.Error().Msg(msg)
-		return fmt.Errorf(msg)
+		return errors.New(msg)
 	}
 
 	if hasPositionalGroup && hasGroupsFlag {
 		msg := "cannot use both groupID argument and --groups flag together"
 		logger.Error().Msg(msg)
-		return fmt.Errorf(msg)
+		return errors.New(msg)
 	}
 
 	if len(args) > 1 {
-		msg := fmt.Sprintf("expected 0 or 1 groupID argument, got %d", len(args))
-		logger.Error().Msg(msg)
-		return fmt.Errorf(msg)
+		logger.Error().Msgf("expected 0 or 1 groupID argument, got %d", len(args))
+		return fmt.Errorf("expected 0 or 1 groupID argument, got %d", len(args))
 	}
 
 	// Validate groupID if provided
 	if hasPositionalGroup {
 		if _, err := uuid.Parse(args[0]); err != nil {
-			msg := fmt.Sprintf("groupID must be a valid UUID: %s", args[0])
-			logger.Error().Msg(msg)
-			return fmt.Errorf(msg)
+			logger.Error().Msgf("groupID must be a valid UUID: %s", args[0])
+			return fmt.Errorf("groupID must be a valid UUID: %s", args[0])
 		}
 	}
 
@@ -101,9 +100,8 @@ func validateGenerateMembershipsArgs(logger *zerolog.Logger, args []string) erro
 		for _, gid := range groupIDs {
 			gid = strings.TrimSpace(gid)
 			if _, err := uuid.Parse(gid); err != nil {
-				msg := fmt.Sprintf("all group IDs must be valid UUIDs, invalid: %s", gid)
-				logger.Error().Msg(msg)
-				return fmt.Errorf(msg)
+				logger.Error().Msgf("all group IDs must be valid UUIDs, invalid: %s", gid)
+				return fmt.Errorf("all group IDs must be valid UUIDs, invalid: %s", gid)
 			}
 		}
 	}
@@ -125,6 +123,11 @@ func runGenerateMembershipsJSON(args []string, logger *zerolog.Logger, sc userFe
 	}
 
 	logger.Info().Msgf("Processing %d group(s)", len(groupIDs))
+
+	// If email filter is active, log it
+	if email != "" {
+		logger.Info().Msgf("Filtering to single user with email: %s", email)
+	}
 
 	// Map to consolidate users by email (or username)
 	userMap := make(map[string]*UserWithMemberships)
@@ -164,6 +167,26 @@ func runGenerateMembershipsJSON(args []string, logger *zerolog.Logger, sc userFe
 				continue
 			}
 
+			// If --email flag is provided, filter to only that user
+			if email != "" {
+				userEmail := safeString(user.Attributes.Email)
+				userName := safeString(user.Attributes.UserName)
+				
+				// Check if this user matches the filter
+				matchFound := false
+				if matchByUserName && userName != "" && userName == email {
+					matchFound = true
+				} else if !matchByUserName && userEmail != "" && userEmail == email {
+					matchFound = true
+				}
+				
+				if !matchFound {
+					logger.Debug().Msgf("Skipping user %s (does not match email filter: %s)", userKey, email)
+					continue
+				}
+				logger.Debug().Msgf("User %s matches email filter", userKey)
+			}
+
 			// Get or create user entry in map
 			if _, exists := userMap[userKey]; !exists {
 				userMap[userKey] = &UserWithMemberships{
@@ -182,13 +205,13 @@ func runGenerateMembershipsJSON(args []string, logger *zerolog.Logger, sc userFe
 			if err == nil && groupMemberships != nil {
 				for _, gm := range groupMemberships.Data {
 					gmGroupID := safeString(gm.Relationship.Group.Data.ID)
-					
+
 					// ONLY include memberships from groups in our allowed list
 					if !allowedGroupIDs[gmGroupID] {
 						logger.Debug().Msgf("Skipping group membership %s (group %s not in allowed list)", safeString(gm.ID), gmGroupID)
 						continue
 					}
-					
+
 					membershipInfo := MembershipInfo{
 						MembershipID: safeString(gm.ID),
 						ID:           gmGroupID,
