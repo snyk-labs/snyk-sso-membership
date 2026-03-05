@@ -217,21 +217,25 @@ func (sso *Client) DeleteUsers(groupID string, users Users, logger *zerolog.Logg
 	return nil
 }
 
-// FilterUsersByDomain filters the SSO users based on the provided domain.
-func (sso *Client) FilterUsersByDomain(domain string, users Users, matchByUserName bool, logger *zerolog.Logger) ([]User, error) {
+// FilterUsersByDomains filters the SSO users to those whose email or username (per matchByUserName)
+// ends with @<any of the given domains>. Pass one or more domains (e.g. from comma-separated --domain).
+func (sso *Client) FilterUsersByDomains(domains []string, users Users, matchByUserName bool, logger *zerolog.Logger) ([]User, error) {
 	var filteredUsers []User
 	for _, user := range users.Data {
-		if isUserProfileOfDomain(&user, domain, matchByUserName) {
-			filteredUsers = append(filteredUsers, user)
+		for _, d := range domains {
+			if isUserProfileOfDomain(&user, d, matchByUserName) {
+				filteredUsers = append(filteredUsers, user)
+				break
+			}
 		}
 	}
 
 	if len(filteredUsers) == 0 {
-		logger.Warn().Msg(fmt.Sprintf("No users found matching domain: %s", domain))
-		return nil, fmt.Errorf("no users found matching domain: %s", domain)
+		logger.Warn().Msg(fmt.Sprintf("No users found matching domain(s): %s", strings.Join(domains, ", ")))
+		return nil, fmt.Errorf("no users found matching domain(s): %s", strings.Join(domains, ", "))
 	}
 
-	logger.Info().Msg(fmt.Sprintf("Filtered %d users matching domain: %s", len(filteredUsers), domain))
+	logger.Info().Msg(fmt.Sprintf("Filtered %d users matching domain(s): %s", len(filteredUsers), strings.Join(domains, ", ")))
 	return filteredUsers, nil
 }
 

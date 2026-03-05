@@ -7,6 +7,7 @@ import (
 	"net/mail"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
@@ -16,8 +17,20 @@ import (
 // userFetcher defines a common interface for getting and filtering SSO users.
 type userFetcher interface {
 	GetUsers(groupID string, logger *zerolog.Logger) (*sso.Users, error)
-	FilterUsersByDomain(domain string, users sso.Users, matchByUserName bool, logger *zerolog.Logger) ([]sso.User, error)
+	FilterUsersByDomains(domains []string, users sso.Users, matchByUserName bool, logger *zerolog.Logger) ([]sso.User, error)
 	FilterUsersByProfileIDs(identifiers []string, users sso.Users, matchByUserName bool, logger *zerolog.Logger) ([]sso.User, error)
+}
+
+// splitDomains parses --domain (single value or comma-separated) into a list of non-empty trimmed domains.
+func splitDomains(domain string) []string {
+	var out []string
+	for _, d := range strings.Split(domain, ",") {
+		d = strings.TrimSpace(d)
+		if d != "" {
+			out = append(out, d)
+		}
+	}
+	return out
 }
 
 // getAndFilterUsers fetches all users and then filters them based on the command-line flags.
@@ -30,10 +43,12 @@ func getAndFilterUsers(groupID string, logger *zerolog.Logger, sc userFetcher) (
 	}
 
 	if domain != "" {
-		// Errors from filter functions are intentionally ignored to allow processing to continue.
-		// If no users are found, an empty list is returned, which is handled by the calling function.
-		filteredUserData, _ := sc.FilterUsersByDomain(domain, *ssoUsers, matchByUserName, logger)
-		ssoUsers.Data = filteredUserData
+		// --domain can be comma-separated (e.g. robsworld.com,Robsworld.com); include users matching any.
+		domains := splitDomains(domain)
+		if len(domains) > 0 {
+			filteredUserData, _ := sc.FilterUsersByDomains(domains, *ssoUsers, matchByUserName, logger)
+			ssoUsers.Data = filteredUserData
+		}
 	} else if email != "" {
 		userEmails := []string{email}
 		filteredUserData, _ := sc.FilterUsersByProfileIDs(userEmails, *ssoUsers, matchByUserName, logger)
@@ -49,7 +64,6 @@ func getAndFilterUsers(groupID string, logger *zerolog.Logger, sc userFetcher) (
 			logger.Error().Err(err).Send()
 			return nil, err
 		}
-		// filter for a specific SSO User from the provided email in CSV line
 		filteredUserData, _ := sc.FilterUsersByProfileIDs(csvEmails, *ssoUsers, matchByUserName, logger)
 		ssoUsers.Data = filteredUserData
 	}

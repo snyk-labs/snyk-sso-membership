@@ -23,8 +23,8 @@ func (m *mockSSOGetter) GetUsers(groupID string, logger *zerolog.Logger) (*sso.U
 	return args.Get(0).(*sso.Users), args.Error(1)
 }
 
-func (m *mockSSOGetter) FilterUsersByDomain(domain string, users sso.Users, matchByUserName bool, logger *zerolog.Logger) ([]sso.User, error) {
-	args := m.Called(domain, users, matchByUserName, logger)
+func (m *mockSSOGetter) FilterUsersByDomains(domains []string, users sso.Users, matchByUserName bool, logger *zerolog.Logger) ([]sso.User, error) {
+	args := m.Called(domains, users, matchByUserName, logger)
 	return args.Get(0).([]sso.User), args.Error(1)
 }
 
@@ -79,7 +79,7 @@ func TestRunGetUsers(t *testing.T) {
 					},
 				}
 				m.On("GetUsers", "group-id", mock.Anything).Return(users, nil)
-				m.On("FilterUsersByDomain", "example.com", *users, false, mock.Anything).Return(filteredUsers, nil)
+				m.On("FilterUsersByDomains", []string{"example.com"}, *users, false, mock.Anything).Return(filteredUsers, nil)
 			},
 			expectedOutput: "\"username\",\"email\",\"name\",\"active\"\n\"testuser\",\"test@example.com\",\"\",\"true\"\n",
 			expectError:    false,
@@ -117,7 +117,7 @@ func TestRunGetUsers(t *testing.T) {
 			setupMock: func(m *mockSSOGetter) {
 				users := &sso.Users{Data: []sso.User{}}
 				m.On("GetUsers", "group-id", mock.Anything).Return(users, nil)
-				m.On("FilterUsersByDomain", "example.com", *users, false, mock.Anything).Return([]sso.User{}, errors.New("filter error"))
+				m.On("FilterUsersByDomains", []string{"example.com"}, *users, false, mock.Anything).Return([]sso.User{}, errors.New("filter error"))
 			},
 			expectedOutput: "",
 			expectError:    false,

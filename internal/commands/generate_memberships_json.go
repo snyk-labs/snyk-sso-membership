@@ -109,6 +109,7 @@ func validateGenerateMembershipsArgs(logger *zerolog.Logger, args []string) erro
 	return nil
 }
 
+//nolint:gocognit // CLI handler with complex multi-step workflow and filtering logic
 func runGenerateMembershipsJSON(args []string, logger *zerolog.Logger, sc userFetcher, mc *membership.Client) error {
 	var groupIDs []string
 
@@ -171,7 +172,7 @@ func runGenerateMembershipsJSON(args []string, logger *zerolog.Logger, sc userFe
 			if email != "" {
 				userEmail := safeString(user.Attributes.Email)
 				userName := safeString(user.Attributes.UserName)
-				
+
 				// Check if this user matches the filter
 				matchFound := false
 				if matchByUserName && userName != "" && userName == email {
@@ -179,7 +180,7 @@ func runGenerateMembershipsJSON(args []string, logger *zerolog.Logger, sc userFe
 				} else if !matchByUserName && userEmail != "" && userEmail == email {
 					matchFound = true
 				}
-				
+
 				if !matchFound {
 					logger.Debug().Msgf("Skipping user %s (does not match email filter: %s)", userKey, email)
 					continue

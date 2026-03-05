@@ -321,8 +321,8 @@ func TestGetUsers_EmptyConnection(t *testing.T) {
 	assert.EqualError(t, err, "unable to get SSO connection on group: test-group-id")
 }
 
-func TestFilterUsersByDomain(t *testing.T) {
-	ssoClient := New(nil) // Client is not used by FilterUsersByDomain directly
+func TestFilterUsersByDomains(t *testing.T) {
+	ssoClient := New(nil)
 	logger := zerolog.Nop()
 
 	users := Users{
@@ -345,11 +345,17 @@ func TestFilterUsersByDomain(t *testing.T) {
 				UserName *string `json:"username"`
 				Active   *bool   `json:"active"`
 			}{Email: stringPtr("user3@another.com"), UserName: stringPtr("user3@another.com")}},
+			{ID: stringPtr("4"), Attributes: &struct {
+				Name     *string `json:"name"`
+				Email    *string `json:"email"`
+				UserName *string `json:"username"`
+				Active   *bool   `json:"active"`
+			}{Email: stringPtr("user4@Robsworld.com"), UserName: stringPtr("user4@Robsworld.com")}},
 		},
 	}
 
-	t.Run("users match domain", func(t *testing.T) {
-		filtered, err := ssoClient.FilterUsersByDomain("example.com", users, false, &logger)
+	t.Run("single domain", func(t *testing.T) {
+		filtered, err := ssoClient.FilterUsersByDomains([]string{"example.com"}, users, false, &logger)
 		assert.NoError(t, err)
 		assert.Len(t, filtered, 2)
 		assert.Equal(t, "user1@example.com", *filtered[0].Attributes.Email)
@@ -357,38 +363,36 @@ func TestFilterUsersByDomain(t *testing.T) {
 	})
 
 	t.Run("users match by username", func(t *testing.T) {
-		filtered, err := ssoClient.FilterUsersByDomain("another.com", users, true, &logger)
+		filtered, err := ssoClient.FilterUsersByDomains([]string{"another.com"}, users, true, &logger)
 		assert.NoError(t, err)
 		assert.Len(t, filtered, 1)
 		assert.Equal(t, "user3@another.com", *filtered[0].Attributes.UserName)
 	})
 
+	t.Run("multiple domains include users from each", func(t *testing.T) {
+		filtered, err := ssoClient.FilterUsersByDomains([]string{"example.com", "Robsworld.com"}, users, false, &logger)
+		assert.NoError(t, err)
+		assert.Len(t, filtered, 3) // user1, user2 from example.com; user4 from Robsworld.com
+	})
+
 	t.Run("no users match domain", func(t *testing.T) {
-		filtered, err := ssoClient.FilterUsersByDomain("nonexistent.com", users, false, &logger)
+		filtered, err := ssoClient.FilterUsersByDomains([]string{"nonexistent.com"}, users, false, &logger)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "no users found matching domain: nonexistent.com")
+		assert.Contains(t, err.Error(), "no users found matching domain(s)")
 		assert.Nil(t, filtered)
 	})
 
-	t.Run("no users match username", func(t *testing.T) {
-		filtered, err := ssoClient.FilterUsersByDomain("nouser", users, true, &logger)
+	t.Run("empty domain list", func(t *testing.T) {
+		filtered, err := ssoClient.FilterUsersByDomains([]string{}, users, false, &logger)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "no users found matching domain: nouser")
-		assert.Nil(t, filtered)
-	})
-
-	t.Run("empty domain string", func(t *testing.T) {
-		filtered, err := ssoClient.FilterUsersByDomain("", users, false, &logger)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "no users found matching domain: ")
 		assert.Nil(t, filtered)
 	})
 
 	t.Run("empty user list", func(t *testing.T) {
 		emptyUsers := Users{Data: []User{}}
-		filtered, err := ssoClient.FilterUsersByDomain("example.com", emptyUsers, false, &logger)
+		filtered, err := ssoClient.FilterUsersByDomains([]string{"example.com"}, emptyUsers, false, &logger)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "no users found matching domain: example.com")
+		assert.Contains(t, err.Error(), "no users found matching domain(s)")
 		assert.Nil(t, filtered)
 	})
 
@@ -404,7 +408,7 @@ func TestFilterUsersByDomain(t *testing.T) {
 				}{Email: stringPtr("user2@example.com"), UserName: stringPtr("user2@example.com")}},
 			},
 		}
-		filtered, err := ssoClient.FilterUsersByDomain("example.com", usersWithNilAttributes, true, &logger)
+		filtered, err := ssoClient.FilterUsersByDomains([]string{"example.com"}, usersWithNilAttributes, true, &logger)
 		assert.NoError(t, err)
 		assert.Len(t, filtered, 1)
 		assert.Equal(t, "user2@example.com", *filtered[0].Attributes.UserName)

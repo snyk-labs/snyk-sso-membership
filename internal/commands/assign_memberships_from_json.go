@@ -70,6 +70,7 @@ func AssignMembershipsFromJSON(logger *zerolog.Logger) *cobra.Command {
 	return &cmd
 }
 
+//nolint:funlen // CLI handler with complex multi-step workflow
 func runAssignMembershipsFromJSON(groupID, path string, logger *zerolog.Logger, sc *sso.Client, mc *membership.Client) error {
 	// Read JSON
 	f, err := os.Open(path)

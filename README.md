@@ -93,7 +93,7 @@ snyk-sso-membership sync <groupID> --domain=source.com --ssoDomain=destination.c
 
 | Option | Description |
 | --- | --- |
-| `--domain` | The source domain to match users from. |
+| `--domain` | The source domain(s) to match users from. One domain or comma-separated list (e.g. `robsworld.com,Robsworld.com`). |
 | `--ssoDomain` | The destination domain to sync memberships to. |
 | `--csvFilePath` | Path to a CSV file containing a list of user emails to sync. |
 | `--matchByUserName` | Match users by their `username` property instead of `email`. |
@@ -125,6 +125,8 @@ snyk-sso-membership get-users <groupID> --email=user1@source.com > myusers.csv
 # Get a list of users from a CSV file
 snyk-sso-membership get-users <groupID> --csvFilePath="./users.csv" > myusers.csv
 ```
+
+> **Note:** `--domain` accepts a single domain or a comma-separated list. Users whose email (or username with `--matchByUserName`) ends with any of the listed domains are included. For example: `--domain=robsworld.com,gmail.com`
 
 ### `delete-users`: Deleting SSO Users
 

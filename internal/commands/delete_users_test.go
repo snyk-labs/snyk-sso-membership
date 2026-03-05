@@ -30,8 +30,8 @@ func (m *MockSsoDeleter) DeleteUsers(groupID string, users sso.Users, logger *ze
 	return args.Error(0)
 }
 
-func (m *MockSsoDeleter) FilterUsersByDomain(domain string, users sso.Users, matchByUserName bool, logger *zerolog.Logger) ([]sso.User, error) {
-	args := m.Called(domain, users, matchByUserName, logger)
+func (m *MockSsoDeleter) FilterUsersByDomains(domains []string, users sso.Users, matchByUserName bool, logger *zerolog.Logger) ([]sso.User, error) {
+	args := m.Called(domains, users, matchByUserName, logger)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -133,10 +133,10 @@ func TestRunDeleteUsers(t *testing.T) {
 		// Set package-level variables
 		csvFilePath = tmpFile.Name()
 		matchByUserName = true
-		domain = "example.com" // Needed for FilterUsersByDomain
+		domain = "example.com"
 		mockSso.On("GetUsers", groupID, &logger).Return(allSsoUsers, nil).Once()
 
-		mockSso.On("FilterUsersByDomain", "example.com", *allSsoUsers, true, &logger).Return([]sso.User{
+		mockSso.On("FilterUsersByDomains", []string{"example.com"}, *allSsoUsers, true, &logger).Return([]sso.User{
 			makeUserForDeleteTest("id4", "user4@example.com", "user4@example.com"),
 		}, nil).Once()
 
@@ -202,7 +202,7 @@ func TestRunDeleteUsers(t *testing.T) {
 			makeUserForDeleteTest("id2", "user2@example.com", "user2@example2.com"),
 			makeUserForDeleteTest("id4", "user4@example.com", "user4@example.com"),
 		}
-		mockSso.On("FilterUsersByDomain", domain, *allSsoUsers, false, &logger).Return(filteredUsers, nil).Once()
+		mockSso.On("FilterUsersByDomains", []string{domain}, *allSsoUsers, false, &logger).Return(filteredUsers, nil).Once()
 
 		expectedUsersToDelete := sso.Users{Data: filteredUsers}
 		mockSso.On("DeleteUsers", validUUID, mock.Anything, &logger).Run(func(args mock.Arguments) {

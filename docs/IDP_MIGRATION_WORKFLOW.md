@@ -51,7 +51,7 @@ This workflow allows you to:
 
 ### Step 1: Export Users and Memberships
 
-Export users and their complete membership data from the **old IdP group(s)**.
+Export users and their complete membership data from the **old IdP group(s)**. You can pass multiple domains as a comma-separated list (e.g. `--domain=robsworld.com,Robsworld.com`) to include users from all of them.
 
 #### Single Group Export
 
